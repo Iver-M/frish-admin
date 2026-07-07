@@ -1,0 +1,10 @@
+/* Base rules only — every context (login, sidebar expanded/collapsed) sets
+   its own width via a class passed through Logo's `className` prop.
+   Height is always auto so the logo's original aspect ratio is preserved
+   and it is never cropped or stretched. */
+.logo-image {
+  display: block;
+  height: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
