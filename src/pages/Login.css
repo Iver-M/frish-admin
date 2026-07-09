@@ -15,12 +15,10 @@
   align-items: center;
 }
 
-/* The official FRISH logo is the primary branding element on this page.
-   Width-only sizing (height: auto, set in Logo.css) keeps its original
-   aspect ratio intact at every breakpoint — it is never cropped or
-   stretched. ~50px separates the logo from the login card below it. */
+
 .login-card__logo {
-  width: 300px; /* desktop: 280-320px range */
+  width: 500x; /* desktop: 280-320px range */
+  padding-bottom: 24px;
 }
 
 @media (max-width: 1024px) {
