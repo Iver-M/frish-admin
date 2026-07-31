@@ -1,12 +1,15 @@
-// Dummy data for the Vendors page.
+// Dummy data for the Vendor Management page.
+// marketId scopes each vendor to a market — Market Admins only see vendors
+// whose marketId matches their assigned market (see AuthContext).
+// ownerName/email identify the person; stallName is their business name.
 
 export const vendors = [
-  { id: 'V-001', name: 'Aling Nena Fish Stall', market: 'Pasig Public Market', stallNumber: 'Stall 12', registration: 'REG-2024-0112', status: 'active' },
-  { id: 'V-002', name: 'Mang Kiko Seafoods', market: 'Pasig Public Market', stallNumber: 'Stall 4', registration: 'REG-2024-0098', status: 'active' },
-  { id: 'V-003', name: 'Fresh Catch Trading', market: 'Quiapo Market', stallNumber: 'Stall 21', registration: 'REG-2023-0231', status: 'active' },
-  { id: 'V-004', name: 'Dela Cruz Fishmongers', market: 'Quiapo Market', stallNumber: 'Stall 3', registration: 'REG-2024-0044', status: 'suspended' },
-  { id: 'V-005', name: 'Divisoria Bounty Seafoods', market: 'Divisoria Market', stallNumber: 'Stall 55', registration: 'REG-2022-0187', status: 'active' },
-  { id: 'V-006', name: 'Ocean Fresh Supply', market: 'Divisoria Market', stallNumber: 'Stall 19', registration: 'REG-2024-0203', status: 'pending' },
+  { id: 'VEN-001', ownerName: 'Juan Dela Cruz', email: 'jdelacruz@gmail.com', stallName: "Juan's Isdaan", market: 'Pasig Public Market', marketId: 'pasig', stallNo: 'A-11', compliance: 'Compliant', violations: 0, status: 'active' },
+  { id: 'VEN-002', ownerName: 'Antonio Cruz', email: 'acruz@gmail.com', stallName: "Antonio's Isdaan", market: 'Pasig Public Market', marketId: 'pasig', stallNo: 'A-12', compliance: 'Under review', violations: 1, status: 'active' },
+  { id: 'VEN-003', ownerName: 'Pedro Garcia', email: 'pgarcia@gmail.com', stallName: "Pedro's Isdaan", market: 'Pasig Public Market', marketId: 'pasig', stallNo: 'A-14', compliance: 'Compliant', violations: 0, status: 'active' },
+  { id: 'VEN-004', ownerName: 'Fresh Catch Trading Co.', email: 'freshcatch@gmail.com', stallName: 'Fresh Catch Trading', market: 'Pasig Public Market', marketId: 'pasig', stallNo: 'B-21', compliance: 'Under review', violations: 2, status: 'active' },
+  { id: 'VEN-005', ownerName: 'Rowena Dela Cruz', email: 'rowena.dc@gmail.com', stallName: 'Dela Cruz Fishmongers', market: 'Pasig Public Market', marketId: 'pasig', stallNo: 'B-03', compliance: 'Non-compliant', violations: 3, status: 'suspended' },
+  { id: 'VEN-006', ownerName: 'Pasig Bounty Co.', email: 'pasigbounty@gmail.com', stallName: 'Pasig Bounty Seafoods', market: 'Pasig Public Market', marketId: 'pasig', stallNo: 'C-55', compliance: 'Compliant', violations: 0, status: 'active' },
 ]
 
 export function getVendors() {

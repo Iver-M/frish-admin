@@ -1,17 +1,42 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FiMail, FiLock } from 'react-icons/fi'
+import { FiMail, FiLock, FiAlertCircle } from 'react-icons/fi'
 import Logo from '../components/common/Logo.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
+import { getAdmins } from '../data/admins.js'
 import './Login.css'
 
 export default function Login() {
   const navigate = useNavigate()
+  const { login } = useAuth()
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
 
   function handleSubmit(e) {
     e.preventDefault()
-    // No authentication in this prototype — go straight to the dashboard.
+
+    // No real authentication yet, but this is shaped exactly like a real
+    // login will be: the user only provides credentials, and the role +
+    // market scope are looked up from the account itself — never chosen by
+    // the person logging in. Swap this lookup for a real Firebase sign-in
+    // later (the returned ID token's custom claims replace `account`
+    // below); nothing downstream (Sidebar, route guards, data scoping)
+    // needs to change.
+    const account = getAdmins().find((a) => a.email.toLowerCase() === email.trim().toLowerCase())
+
+    if (!account) {
+      setError('No admin account found for that email.')
+      return
+    }
+    if (account.status === 'suspended') {
+      setError('This account has been suspended. Contact a BFAR Admin.')
+      return
+    }
+
+    setError('')
+    login(account.role, account.marketId)
     navigate('/dashboard')
   }
 
@@ -48,6 +73,12 @@ export default function Login() {
                 autoComplete="current-password"
               />
             </div>
+
+            {error && (
+              <p className="login-error">
+                <FiAlertCircle size={14} /> {error}
+              </p>
+            )}
 
             <button type="submit" className="login-card__submit">
               Log In

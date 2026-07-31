@@ -1,13 +1,13 @@
 .sidebar {
   width: var(--sidebar-width);
-  background: #fff;
+  background: #f8faff;
   border-right: 1px solid var(--border-color);
   height: 100vh;
   position: sticky;
   top: 0;
   display: flex;
   flex-direction: column;
-  transition: width 0.2s ease;
+  transition: width 0.2s ease, transform 0.2s ease;
   z-index: 100;
   flex-shrink: 0;
 }
@@ -20,39 +20,40 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px var(--space-4) 16px;
-  border-bottom: 1px solid var(--border-color);
+  padding: 24px var(--space-4) 22px;
   overflow: hidden;
 }
 
 .sidebar--collapsed .sidebar__brand {
-  padding: 20px var(--space-2) 16px;
+  padding: 24px var(--space-2) 22px;
 }
 
-
+/* Expanded sidebar: logo reads clearly at 160-190px wide, centered.
+   Height is always auto (see Logo.css) so it's never cropped or distorted. */
 .sidebar__logo {
-  width: 500px;
+  width: 172px;
 }
 
-
+/* Collapsed rail: logo scales down proportionally to ~50px wide. */
 .sidebar__logo--collapsed {
-  width: 100px;
+  width: 50px;
 }
 
 .sidebar__nav {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-3) var(--space-3);
+  padding: 26px var(--space-2) var(--space-3);
 }
 
 .sidebar__link {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: 11px 14px;
+  gap: 14px;
+  min-height: 50px;
+  padding: 10px 14px;
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   background: none;
@@ -64,7 +65,7 @@
 }
 
 .sidebar__link:hover {
-  background: var(--color-info-bg);
+  background: #e9f3f9;
   color: var(--color-primary);
 }
 
@@ -76,6 +77,10 @@
   background: var(--color-primary);
   color: #fff;
 }
+.sidebar__link:focus-visible {
+  outline: 3px solid rgba(4, 68, 112, 0.25);
+  outline-offset: 2px;
+}
 
 .sidebar__link-icon {
   flex-shrink: 0;
@@ -84,21 +89,18 @@
 .sidebar__nav ul {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 6px;
 }
 
-.sidebar__footer {
-  padding: var(--space-3);
-  border-top: 1px solid var(--border-color);
-}
-
-.sidebar__logout {
-  color: var(--color-danger);
-}
-.sidebar__logout:hover {
-  background: var(--color-danger-bg);
-  color: var(--color-danger);
-}
+.sidebar__footer { padding: 14px 12px; border-top: 1px solid var(--border-color); }
+.sidebar__account { align-items: center; display: flex; gap: 10px; min-height: 62px; }
+.sidebar__account-avatar { align-items: center; background: #244a84; border-radius: 50%; color: #fff; display: flex; flex: 0 0 38px; font-size: 12px; font-weight: 700; height: 38px; justify-content: center; }
+.sidebar__account-copy { display: grid; flex: 1; gap: 2px; min-width: 0; }
+.sidebar__account-copy strong { color: var(--text-primary); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar__account-copy small { color: var(--text-secondary); font-size: 10px; }
+.sidebar__signout { align-items: center; background: transparent; border: 0; border-radius: 8px; color: var(--color-primary); cursor: pointer; display: flex; padding: 8px; }
+.sidebar__signout:hover { background: var(--color-info-bg); }
+.sidebar__signout:focus-visible { outline: 3px solid rgba(4, 68, 112, .22); }
 
 .sidebar-scrim {
   display: none;

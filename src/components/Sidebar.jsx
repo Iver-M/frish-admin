@@ -9,22 +9,32 @@ import {
   FiMessageSquare,
   FiUser,
   FiLogOut,
+  FiShield,
 } from 'react-icons/fi'
 import Logo from './common/Logo.jsx'
 import './Sidebar.css'
 
+// `roles` lists who can see each item. Keep this in sync with ROUTE_ACCESS
+// in AdminLayout.jsx, which enforces the same rule at the route level (a
+// role-filtered nav link is UX only — the route guard is what actually
+// stops direct navigation to a page a role shouldn't see).
 const NAV_ITEMS = [
-  { to: '/dashboard', label: 'Dashboard', icon: FiGrid },
-  { to: '/assessments', label: 'Assessments', icon: FiClipboard },
-  { to: '/reports', label: 'Reports', icon: FiFileText },
-  { to: '/inspectors', label: 'Inspectors', icon: FiUsers },
-  { to: '/vendors', label: 'Vendors', icon: FiShoppingBag },
-  { to: '/audit-trail', label: 'Audit Trail', icon: FiList },
-  { to: '/feedback', label: 'User Feedback', icon: FiMessageSquare },
-  { to: '/profile', label: 'Profile', icon: FiUser },
+  { to: '/dashboard', label: 'Dashboard', icon: FiGrid, roles: ['bfar_admin', 'market_admin'] },
+  { to: '/assessments', label: 'Assessments', icon: FiClipboard, roles: ['bfar_admin', 'market_admin'] },
+  { to: '/reports', label: 'Reports', icon: FiFileText, roles: ['bfar_admin', 'market_admin'] },
+  { to: '/inspectors', label: 'Inspectors', icon: FiUsers, roles: ['bfar_admin', 'market_admin'] },
+  { to: '/vendors', label: 'Vendors', icon: FiShoppingBag, roles: ['bfar_admin', 'market_admin'] },
+  { to: '/audit-trail', label: 'Audit Trail', icon: FiList, roles: ['bfar_admin'] },
+  { to: '/feedback', label: 'User Feedback', icon: FiMessageSquare, roles: ['bfar_admin', 'market_admin'] },
+  { to: '/admins', label: 'Manage Admins', icon: FiShield, roles: ['bfar_admin'] },
+  { to: '/profile', label: 'Profile', icon: FiUser, roles: ['bfar_admin', 'market_admin'] },
 ]
 
-export default function Sidebar({ collapsed, mobileOpen, onMobileClose, onLogout }) {
+export default function Sidebar({ collapsed, mobileOpen, onMobileClose, onLogout, role, user }) {
+  const visibleItems = NAV_ITEMS.filter((item) => item.roles.includes(role) && (role !== 'bfar_admin' || item.to !== '/vendors') && (role !== 'market_admin' || ['/dashboard', '/reports', '/vendors', '/profile'].includes(item.to))).map((item) =>
+    role === 'market_admin' && item.to === '/reports' ? { ...item, label: 'Escalated Reports' } : item,
+  )
+
   return (
     <>
       {mobileOpen && <div className="sidebar-scrim" onClick={onMobileClose} />}
@@ -40,7 +50,7 @@ export default function Sidebar({ collapsed, mobileOpen, onMobileClose, onLogout
 
         <nav className="sidebar__nav">
           <ul>
-            {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+            {visibleItems.map(({ to, label, icon: Icon }) => (
               <li key={to}>
                 <NavLink
                   to={to}
@@ -59,10 +69,18 @@ export default function Sidebar({ collapsed, mobileOpen, onMobileClose, onLogout
         </nav>
 
         <div className="sidebar__footer">
-          <button className="sidebar__link sidebar__logout" onClick={onLogout} title={collapsed ? 'Log Out' : undefined}>
-            <FiLogOut size={18} className="sidebar__link-icon" />
-            {!collapsed && <span>Log Out</span>}
-          </button>
+          <div className="sidebar__account">
+            <span className="sidebar__account-avatar">{role === 'bfar_admin' ? 'BF' : 'LG'}</span>
+            {!collapsed && (
+              <span className="sidebar__account-copy">
+                <strong>{role === 'bfar_admin' ? 'BFAR-NCR Admin' : 'LGU Admin'}</strong>
+                <small>{user?.marketName || 'Pasig City'}</small>
+              </span>
+            )}
+            <button className="sidebar__signout" onClick={onLogout} title="Sign out" aria-label="Sign out">
+              <FiLogOut size={18} />
+            </button>
+          </div>
         </div>
       </aside>
     </>

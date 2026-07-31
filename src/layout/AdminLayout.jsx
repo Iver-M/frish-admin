@@ -1,34 +1,75 @@
-import { useState } from 'react'
-import { Outlet, useNavigate, useLocation } from 'react-router-dom'
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { Outlet, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import Sidebar from '../components/Sidebar.jsx'
 import Topbar from '../components/Topbar.jsx'
-import { getAdminProfile } from '../data/profile.js'
+import { useAuth } from '../context/AuthContext.jsx'
 import './AdminLayout.css'
 
-// Maps each route to the title/welcome copy shown in the Topbar.
-// Add an entry here whenever a new page is added to the router.
-const PAGE_META = {
-  '/dashboard': { title: 'Dashboard', welcome: 'Welcome back to the FRISH Admin Portal' },
-  '/assessments': { title: 'Assessments', welcome: 'Review freshness assessments submitted by inspectors' },
-  '/reports': { title: 'Reports', welcome: 'Consumer and inspector submitted reports' },
-  '/inspectors': { title: 'Inspectors', welcome: 'Manage inspector accounts and assignments' },
-  '/vendors': { title: 'Vendors', welcome: 'Manage registered market vendors' },
-  '/audit-trail': { title: 'Audit Trail', welcome: 'Track administrative actions across the system' },
-  '/feedback': { title: 'User Feedback', welcome: 'See what consumers and inspectors are saying' },
-  '/profile': { title: 'Profile', welcome: 'Manage your administrator account' },
+// Which roles can access each route. This is the actual enforcement point
+// on the frontend — Sidebar hiding a link is just UX, this is what stops
+// someone from typing the URL directly. (A real backend must enforce this
+// independently too — see the Firestore Security Rules discussion.)
+const ROUTE_ACCESS = {
+  '/dashboard': ['bfar_admin', 'market_admin'],
+  '/assessments': ['bfar_admin', 'market_admin'],
+  '/reports': ['bfar_admin', 'market_admin'],
+  '/inspectors': ['bfar_admin', 'market_admin'],
+  '/vendors': ['market_admin'],
+  '/audit-trail': ['bfar_admin'],
+  '/feedback': ['bfar_admin', 'market_admin'],
+  '/admins': ['bfar_admin'],
+  '/profile': ['bfar_admin', 'market_admin'],
+  '/notifications': ['bfar_admin', 'market_admin'],
+}
+
+const BannerActionContext = createContext(null)
+
+/** Renders a page-level primary action in the shared BFAR banner. */
+export function BfarBannerAction({ children }) {
+  const context = useContext(BannerActionContext)
+  useEffect(() => {
+    if (!context) return undefined
+    context.setAction(children)
+    return () => context.setAction(null)
+  }, [children, context])
+  return null
+}
+
+const BFAR_PAGE_HEADERS = {
+  '/dashboard': ['Dashboard', 'Welcome back to FRISH Admin Portal'],
+  '/assessments': ['Assessments', 'Review and manage submitted freshness assessments'],
+  '/reports': ['Report Management', 'Review and manage consumer and inspector submitted reports'],
+  '/inspectors': ['Inspector Management', 'Create, view, and manage inspector account assignments'],
+  '/vendors': ['Vendor Management', 'Create, view, and manage vendor records'],
+  '/audit-trail': ['Audit Trail', 'Monitor system activities and user actions'],
+  '/feedback': ['User Feedback', 'Review and manage user comments, suggestions, and feedback'],
+  '/admins': ['Manage Admins', 'Manage BFAR and market administrator accounts'],
+  '/profile': ['Profile Management', 'View and update your profile information and account settings'],
+  '/notifications': ['Notifications', 'Stay updated on reports, reviews, assessments, and vendor actions.'],
 }
 
 export default function AdminLayout() {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [bannerAction, setBannerAction] = useState(null)
   const navigate = useNavigate()
   const location = useLocation()
-  const profile = getAdminProfile()
+  const { user, logout } = useAuth()
 
-  const meta = PAGE_META[location.pathname] || { title: 'FRISH Admin', welcome: '' }
+  // Not logged in — bounce back to the login screen.
+  if (!user) {
+    return <Navigate to="/" replace />
+  }
+
+  // Logged in, but this role isn't allowed on this route — send to Dashboard
+  // rather than showing a broken/empty page.
+  const allowedRoles = ROUTE_ACCESS[location.pathname]
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    return <Navigate to="/dashboard" replace />
+  }
 
   function handleLogout() {
-    // No real auth in this prototype — simply return to the login screen.
+    logout()
     navigate('/')
   }
 
@@ -40,24 +81,28 @@ export default function AdminLayout() {
     }
   }
 
+  const [pageTitle, pageSubtitle] = BFAR_PAGE_HEADERS[location.pathname] || ['FRISH Admin Portal', 'Manage your FRISH administration workspace.']
+  const bannerActionContext = useMemo(() => ({ setAction: setBannerAction }), [])
+
   return (
+    <BannerActionContext.Provider value={bannerActionContext}>
     <div className="admin-layout">
       <Sidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
         onMobileClose={() => setMobileOpen(false)}
         onLogout={handleLogout}
+        role={user.role}
+        user={user}
       />
       <div className="admin-layout__main">
-        <Topbar
-          title={meta.title}
-          welcomeMessage={`${meta.welcome}${meta.welcome ? ' — ' : ''}${profile.name}`}
-          onMenuClick={handleMenuClick}
-        />
-        <div className="admin-layout__content">
+        <Topbar onMenuClick={handleMenuClick} user={user} />
+        {user.role === 'bfar_admin' && <section className="bfar-welcome-banner"><div><span>BFAR-NCR ADMIN</span><h1>{pageTitle}</h1><p>{pageSubtitle}</p></div>{bannerAction && <div className="bfar-welcome-banner__action">{bannerAction}</div>}</section>}
+        <div className={`admin-layout__content ${user.role === 'bfar_admin' ? 'admin-layout__content--bfar' : ''}`}>
           <Outlet />
         </div>
       </div>
     </div>
+    </BannerActionContext.Provider>
   )
 }

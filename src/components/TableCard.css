@@ -11,11 +11,11 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: var(--space-5) var(--space-5) var(--space-3);
+  padding: 22px var(--space-5) 14px;
 }
 
 .table-card__title {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
 }
 
@@ -58,7 +58,7 @@
 }
 
 .table-card__table tbody tr:hover {
-  background: #FAFCFE;
+  background: #f4f9fc;
 }
 
 .table-card__empty {

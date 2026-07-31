@@ -7,10 +7,13 @@ const STATUS_MAP = {
   'not-fresh': { label: 'Not Fresh', tone: 'danger' },
   moderate: { label: 'Moderate', tone: 'warning' },
 
-  pending: { label: 'Pending Review', tone: 'warning' },
+  'pending-review': { label: 'Pending Review', tone: 'info' },
+  pending: { label: 'Pending Review', tone: 'info' },
+  'under-investigation': { label: 'Under Investigation', tone: 'danger' },
   investigating: { label: 'Under Investigation', tone: 'danger' },
   validated: { label: 'Validated', tone: 'success' },
-  assigned: { label: 'Assigned', tone: 'info' },
+  'forwarded-lgu': { label: 'Forwarded to LGU', tone: 'neutral' },
+  'in-progress': { label: 'In Progress', tone: 'warning' },
   resolved: { label: 'Resolved', tone: 'success' },
 
   active: { label: 'Active', tone: 'success' },

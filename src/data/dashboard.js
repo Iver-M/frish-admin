@@ -46,6 +46,7 @@ export const recentAssessments = [
     inspector: 'Juan Dela Cruz',
     date: 'Today · 8:14 AM',
     status: 'fresh',
+    marketId: 'pasig',
   },
   {
     id: 'DLGREG-398',
@@ -55,6 +56,7 @@ export const recentAssessments = [
     inspector: 'Juan Dela Cruz',
     date: 'Today · 7:52 AM',
     status: 'fresh',
+    marketId: 'pasig',
   },
   {
     id: 'DLG-447',
@@ -64,6 +66,7 @@ export const recentAssessments = [
     inspector: 'Juan Dela Cruz',
     date: 'Today · 7:40 AM',
     status: 'not-fresh',
+    marketId: 'pasig',
   },
   {
     id: 'DLG-451',
@@ -73,6 +76,7 @@ export const recentAssessments = [
     inspector: 'Maria Santos',
     date: 'Today · 7:22 AM',
     status: 'moderate',
+    marketId: 'pasig',
   },
 ]
 
@@ -81,6 +85,7 @@ export const recentReports = [
     id: 'REP-2026-089',
     reporterType: 'Consumer',
     market: 'Pasig Public Market',
+    marketId: 'pasig',
     issue: 'Under Investigation',
     status: 'investigating',
     submittedBy: 'Consumer User',
@@ -90,6 +95,7 @@ export const recentReports = [
     id: 'REP-2026-090',
     reporterType: 'Consumer',
     market: 'Pasig Public Market',
+    marketId: 'pasig',
     issue: 'Pending Review',
     status: 'pending',
     submittedBy: 'Consumer User',
@@ -99,6 +105,7 @@ export const recentReports = [
     id: 'REP-2026-091',
     reporterType: 'Inspector',
     market: 'Pasig Public Market',
+    marketId: 'pasig',
     issue: 'Validated',
     status: 'validated',
     submittedBy: 'Juan Dela Cruz',

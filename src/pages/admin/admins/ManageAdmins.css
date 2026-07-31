@@ -1,0 +1,12 @@
+.manage-admins__note {
+  font-size: 13.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  max-width: 640px;
+}
+
+.manage-admins__protected {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}

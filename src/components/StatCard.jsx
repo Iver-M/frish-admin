@@ -1,11 +1,48 @@
-import { FiUsers, FiClipboard, FiAlertTriangle, FiPercent, FiTrendingUp } from 'react-icons/fi'
+import {
+  FiUsers,
+  FiClipboard,
+  FiAlertTriangle,
+  FiPercent,
+  FiTrendingUp,
+  FiClock,
+  FiSearch,
+  FiCheckCircle,
+  FiSend,
+  FiUserCheck,
+  FiUserX,
+  FiActivity,
+  FiTag,
+  FiMessageSquare,
+  FiSmile,
+  FiShoppingBag,
+  FiMap,
+  FiInbox,
+  FiLoader,
+} from 'react-icons/fi'
 import './StatCard.css'
 
+// One shared icon set so every module's stat cards look consistent.
+// Add a new key here whenever a page needs a stat type not yet covered.
 const ICONS = {
   inspectors: FiUsers,
   assessments: FiClipboard,
   reports: FiAlertTriangle,
   'pass-rate': FiPercent,
+  pending: FiClock,
+  investigating: FiSearch,
+  validated: FiCheckCircle,
+  forwarded: FiSend,
+  active: FiUserCheck,
+  inactive: FiUserX,
+  activity: FiActivity,
+  categories: FiTag,
+  feedback: FiMessageSquare,
+  sentiment: FiSmile,
+  vendors: FiShoppingBag,
+  markets: FiMap,
+  'in-progress': FiLoader,
+  resolved: FiCheckCircle,
+  total: FiInbox,
 }
 
 export default function StatCard({ label, value, sublabel, icon, trend = 'flat' }) {

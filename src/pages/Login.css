@@ -15,10 +15,13 @@
   align-items: center;
 }
 
-
+/* The official FRISH logo is the primary branding element on this page.
+   Width-only sizing (height: auto, set in Logo.css) keeps its original
+   aspect ratio intact at every breakpoint — it is never cropped or
+   stretched. */
 .login-card__logo {
-  width: 500x; /* desktop: 280-320px range */
-  padding-bottom: 24px;
+  width: 300px; /* desktop: 280-320px range */
+  margin-bottom: 12px;
 }
 
 @media (max-width: 1024px) {
@@ -102,6 +105,20 @@
 }
 .login-card__submit:hover {
   background: var(--color-primary-dark);
+}
+
+/* Shown when the entered email doesn't match a known admin account, or
+   the matched account is suspended. */
+.login-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-3);
 }
 
 .login-card__forgot {
