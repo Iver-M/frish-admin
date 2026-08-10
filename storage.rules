@@ -1,0 +1,9 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() { return request.auth != null; }
+    function isBfar() { return signedIn() && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'bfar_admin'; }
+    match /assessments/{assessmentId}/{fileName} { allow read: if signedIn(); allow write: if isBfar(); }
+    match /reports/{reportId}/{fileName} { allow read: if signedIn(); allow write: if isBfar(); }
+  }
+}

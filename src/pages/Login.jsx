@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { FiMail, FiLock, FiAlertCircle } from 'react-icons/fi'
 import Logo from '../components/common/Logo.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -8,14 +8,37 @@ import './Login.css'
 
 export default function Login() {
   const navigate = useNavigate()
-  const { login } = useAuth()
+  const { user, login, loginWithCredentials, isFirebaseEnabled } = useAuth()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  function handleSubmit(e) {
+  if (user) return <Navigate to="/dashboard" replace />
+
+  async function handleSubmit(e) {
     e.preventDefault()
+
+    if (isFirebaseEnabled) {
+      setError('')
+
+      if (!email.trim() || !password) {
+        setError('Enter both your email address and password.')
+        return
+      }
+
+      setIsSubmitting(true)
+      try {
+        await loginWithCredentials(email.trim(), password)
+        navigate('/dashboard')
+      } catch (loginError) {
+        setError(loginError.message || 'Unable to sign in right now. Please try again.')
+      } finally {
+        setIsSubmitting(false)
+      }
+      return
+    }
 
     // No real authentication yet, but this is shaped exactly like a real
     // login will be: the user only provides credentials, and the role +
@@ -58,8 +81,13 @@ export default function Login() {
                 type="email"
                 placeholder="Email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value)
+                  if (error) setError('')
+                }}
                 autoComplete="username"
+                required
+                aria-invalid={Boolean(error)}
               />
             </div>
 
@@ -69,19 +97,24 @@ export default function Login() {
                 type="password"
                 placeholder="Password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value)
+                  if (error) setError('')
+                }}
                 autoComplete="current-password"
+                required
+                aria-invalid={Boolean(error)}
               />
             </div>
 
             {error && (
-              <p className="login-error">
+              <p className="login-error" role="alert" aria-live="polite">
                 <FiAlertCircle size={14} /> {error}
               </p>
             )}
 
-            <button type="submit" className="login-card__submit">
-              Log In
+            <button type="submit" className="login-card__submit" disabled={isSubmitting} aria-busy={isSubmitting}>
+              {isSubmitting ? 'Signing in…' : 'Log In'}
             </button>
 
             <a href="#" className="login-card__forgot" onClick={(e) => e.preventDefault()}>

@@ -14,6 +14,9 @@ const STATUS_MAP = {
   validated: { label: 'Validated', tone: 'success' },
   'forwarded-lgu': { label: 'Forwarded to LGU', tone: 'neutral' },
   'in-progress': { label: 'In Progress', tone: 'warning' },
+  'in progress': { label: 'In Progress', tone: 'warning' },
+  assigned: { label: 'Assigned', tone: 'info' },
+  submitted: { label: 'Submitted', tone: 'neutral' },
   resolved: { label: 'Resolved', tone: 'success' },
 
   active: { label: 'Active', tone: 'success' },

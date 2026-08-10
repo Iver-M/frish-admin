@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Outlet, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import Sidebar from '../components/Sidebar.jsx'
 import Topbar from '../components/Topbar.jsx'
@@ -11,9 +12,9 @@ import './AdminLayout.css'
 // independently too — see the Firestore Security Rules discussion.)
 const ROUTE_ACCESS = {
   '/dashboard': ['bfar_admin', 'market_admin'],
-  '/assessments': ['bfar_admin', 'market_admin'],
+  '/assessments': ['bfar_admin'],
   '/reports': ['bfar_admin', 'market_admin'],
-  '/inspectors': ['bfar_admin', 'market_admin'],
+  '/inspectors': ['bfar_admin'],
   '/vendors': ['market_admin'],
   '/audit-trail': ['bfar_admin'],
   '/feedback': ['bfar_admin', 'market_admin'],
@@ -26,18 +27,13 @@ const BannerActionContext = createContext(null)
 
 /** Renders a page-level primary action in the shared BFAR banner. */
 export function BfarBannerAction({ children }) {
-  const context = useContext(BannerActionContext)
-  useEffect(() => {
-    if (!context) return undefined
-    context.setAction(children)
-    return () => context.setAction(null)
-  }, [children, context])
-  return null
+  const target = useContext(BannerActionContext)
+  return target ? createPortal(children, target) : null
 }
 
 const BFAR_PAGE_HEADERS = {
   '/dashboard': ['Dashboard', 'Welcome back to FRISH Admin Portal'],
-  '/assessments': ['Assessments', 'Review and manage submitted freshness assessments'],
+  '/assessments': ['Freshness Assessments', 'Review live scan results submitted by authorized inspectors'],
   '/reports': ['Report Management', 'Review and manage consumer and inspector submitted reports'],
   '/inspectors': ['Inspector Management', 'Create, view, and manage inspector account assignments'],
   '/vendors': ['Vendor Management', 'Create, view, and manage vendor records'],
@@ -51,10 +47,14 @@ const BFAR_PAGE_HEADERS = {
 export default function AdminLayout() {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [bannerAction, setBannerAction] = useState(null)
+  const [bannerActionTarget, setBannerActionTarget] = useState(null)
   const navigate = useNavigate()
   const location = useLocation()
-  const { user, logout } = useAuth()
+  const { user, logout, authLoading } = useAuth()
+
+  if (authLoading) {
+    return <div className="admin-layout__loading">Checking your secure session…</div>
+  }
 
   // Not logged in — bounce back to the login screen.
   if (!user) {
@@ -82,10 +82,8 @@ export default function AdminLayout() {
   }
 
   const [pageTitle, pageSubtitle] = BFAR_PAGE_HEADERS[location.pathname] || ['FRISH Admin Portal', 'Manage your FRISH administration workspace.']
-  const bannerActionContext = useMemo(() => ({ setAction: setBannerAction }), [])
-
   return (
-    <BannerActionContext.Provider value={bannerActionContext}>
+    <BannerActionContext.Provider value={bannerActionTarget}>
     <div className="admin-layout">
       <Sidebar
         collapsed={collapsed}
@@ -97,7 +95,7 @@ export default function AdminLayout() {
       />
       <div className="admin-layout__main">
         <Topbar onMenuClick={handleMenuClick} user={user} />
-        {user.role === 'bfar_admin' && <section className="bfar-welcome-banner"><div><span>BFAR-NCR ADMIN</span><h1>{pageTitle}</h1><p>{pageSubtitle}</p></div>{bannerAction && <div className="bfar-welcome-banner__action">{bannerAction}</div>}</section>}
+        {user.role === 'bfar_admin' && <section className="bfar-welcome-banner"><div><span>BFAR-NCR ADMIN</span><h1>{pageTitle}</h1><p>{pageSubtitle}</p></div><div ref={setBannerActionTarget} className="bfar-welcome-banner__action" /></section>}
         <div className={`admin-layout__content ${user.role === 'bfar_admin' ? 'admin-layout__content--bfar' : ''}`}>
           <Outlet />
         </div>

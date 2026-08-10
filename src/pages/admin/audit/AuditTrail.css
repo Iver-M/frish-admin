@@ -1,2 +1,9 @@
 /* Column widths read better when Action/Details aren't allowed to force
    the table too wide on smaller screens. */
+.audit-error { background: #fff0ef; border: 1px solid #f0c1bd; border-radius: 8px; color: #a23832; font-size: 13px; margin: 0 0 14px; padding: 10px 12px; }
+.audit-page .stat-grid { display: grid; gap: 14px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.audit-page .stat-card { gap: 10px; min-width: 0; padding: 16px; }
+.audit-page .stat-card__value { font-size: 28px; }
+.audit-page .stat-card__label { line-height: 1.3; }
+@media (max-width: 980px) { .audit-page .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .audit-page .stat-grid { grid-template-columns: 1fr; } }

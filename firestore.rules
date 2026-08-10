@@ -1,0 +1,116 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function profile() {
+      return get(
+        /databases/$(database)/documents/users/$(request.auth.uid)
+      ).data;
+    }
+
+    function isBfar() {
+      return signedIn()
+        && profile().role == 'bfar_admin'
+        && profile().get(
+          'accountStatus',
+          profile().get('status', 'active')
+        ) == 'active';
+    }
+
+    function isInspector() {
+      return signedIn()
+        && profile().role == 'inspector'
+        && profile().accountStatus == 'active';
+    }
+
+    function isPasigMarketAdmin() {
+      return signedIn()
+        && profile().role == 'market_admin'
+        && profile().marketId == 'pasig'
+        && profile().get(
+          'accountStatus',
+          profile().get('status', 'active')
+        ) == 'active';
+    }
+
+    function isPasigReportUpdate() {
+      return isPasigMarketAdmin()
+        // Older Inspector submissions may not contain marketId until BFAR
+        // normalizes the report. LGU updates always write it back as pasig.
+        && resource.data.get('marketId', '') in ['', 'pasig']
+        && request.resource.data.get('marketId', '') == 'pasig';
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if signedIn();
+      allow create, update: if isBfar();
+      allow delete: if false;
+    }
+
+    // Assessments collection
+    match /assessments/{assessmentId} {
+      allow read: if isBfar() || isPasigMarketAdmin();
+    }
+
+    // Scans collection — preserved from the Inspector team's working rules.
+    match /scans/{scanId} {
+      allow create: if signedIn()
+        && request.resource.data.createdBy.uid == request.auth.uid
+        && request.resource.data.createdBy.role == 'inspector';
+
+      allow read: if signedIn();
+    }
+
+    // Reports collection — Inspector submission and access rules are
+    // preserved; BFAR reviews/forwards and the Pasig LGU resolves reports.
+    match /reports/{reportId} {
+      allow read: if isBfar()
+        || isPasigMarketAdmin()
+        || (isInspector()
+          && resource.data.keys().hasAny(['assignedInspectorId'])
+          && resource.data.assignedInspectorId == request.auth.uid)
+        || (isInspector()
+          && resource.data.createdBy.uid == request.auth.uid);
+
+      allow create: if signedIn()
+        && request.resource.data.status == 'submitted'
+        && request.resource.data.sourceType == 'inspector'
+        && request.resource.data.createdBy.uid == request.auth.uid
+        && request.resource.data.createdBy.role == 'inspector';
+
+      allow update: if isBfar() || isPasigReportUpdate();
+    }
+
+    // BFAR sends the reviewed LGU conclusion to the original reporter.
+    // Only the intended signed-in recipient can read or acknowledge it.
+    match /reporterNotifications/{notificationId} {
+      allow read: if isBfar()
+        || (signedIn()
+          && resource.data.recipientUid == request.auth.uid);
+
+      allow create: if isBfar()
+        && request.resource.data.recipientUid is string
+        && request.resource.data.reportId is string;
+
+      allow update: if signedIn()
+        && resource.data.recipientUid == request.auth.uid
+        && request.resource.data.recipientUid == resource.data.recipientUid
+        && request.resource.data.reportId == resource.data.reportId;
+
+      allow delete: if false;
+    }
+
+    // BFAR management actions and LGU decisions use atomic audit entries.
+    match /auditLogs/{logId} {
+      allow read: if isBfar() || isPasigMarketAdmin();
+      allow create: if isBfar() || isPasigMarketAdmin();
+      allow update, delete: if false;
+    }
+  }
+}

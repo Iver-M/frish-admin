@@ -47,3 +47,11 @@
 @media (max-width: 640px) {
   .bfar-welcome-banner { margin: 18px 16px 0; min-height: 0; padding: 18px; }
 }
+.admin-layout__loading {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  color: var(--color-text-secondary, #5f7896);
+  background: var(--color-page-bg, #f5f8fc);
+  font-weight: 600;
+}

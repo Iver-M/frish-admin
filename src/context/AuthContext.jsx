@@ -1,5 +1,7 @@
-import { createContext, useContext, useState, useCallback } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { getMarketById } from '../data/markets.js'
+import { isFirebaseEnabled } from '../services/firebase.js'
+import { observeAdminSession, signInAdmin, signOutAdmin } from '../services/authService.js'
 
 /**
  * Simulated auth/session state for this frontend-only prototype.
@@ -26,6 +28,16 @@ function loadSession() {
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => loadSession())
+  const [authLoading, setAuthLoading] = useState(isFirebaseEnabled)
+
+  useEffect(() => {
+    if (!isFirebaseEnabled) return undefined
+
+    return observeAdminSession((profile) => {
+      setUser(profile)
+      setAuthLoading(false)
+    })
+  }, [])
 
   const login = useCallback((role, marketId = null) => {
     const market = marketId ? getMarketById(marketId) : null
@@ -40,16 +52,24 @@ export function AuthProvider({ children }) {
     return nextUser
   }, [])
 
+  const loginWithCredentials = useCallback(async (email, password) => {
+    const profile = await signInAdmin(email, password)
+    localStorage.removeItem(SESSION_KEY)
+    setUser(profile)
+    return profile
+  }, [])
+
   const logout = useCallback(() => {
     localStorage.removeItem(SESSION_KEY)
     setUser(null)
+    void signOutAdmin()
   }, [])
 
   const isBfarAdmin = user?.role === 'bfar_admin'
   const isMarketAdmin = user?.role === 'market_admin'
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isBfarAdmin, isMarketAdmin }}>
+    <AuthContext.Provider value={{ user, login, loginWithCredentials, logout, isBfarAdmin, isMarketAdmin, isFirebaseEnabled, authLoading }}>
       {children}
     </AuthContext.Provider>
   )

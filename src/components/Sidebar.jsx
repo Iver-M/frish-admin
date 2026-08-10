@@ -20,9 +20,9 @@ import './Sidebar.css'
 // stops direct navigation to a page a role shouldn't see).
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Dashboard', icon: FiGrid, roles: ['bfar_admin', 'market_admin'] },
-  { to: '/assessments', label: 'Assessments', icon: FiClipboard, roles: ['bfar_admin', 'market_admin'] },
+  { to: '/assessments', label: 'Freshness Assessments', icon: FiClipboard, roles: ['bfar_admin'] },
   { to: '/reports', label: 'Reports', icon: FiFileText, roles: ['bfar_admin', 'market_admin'] },
-  { to: '/inspectors', label: 'Inspectors', icon: FiUsers, roles: ['bfar_admin', 'market_admin'] },
+  { to: '/inspectors', label: 'Inspectors', icon: FiUsers, roles: ['bfar_admin'] },
   { to: '/vendors', label: 'Vendors', icon: FiShoppingBag, roles: ['bfar_admin', 'market_admin'] },
   { to: '/audit-trail', label: 'Audit Trail', icon: FiList, roles: ['bfar_admin'] },
   { to: '/feedback', label: 'User Feedback', icon: FiMessageSquare, roles: ['bfar_admin', 'market_admin'] },
