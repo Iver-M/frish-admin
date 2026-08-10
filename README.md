@@ -2,91 +2,300 @@
 
 FRISH is a role-based administration portal for monitoring fish freshness assessments, report workflows, and market enforcement activity at **Pasig Public Market**.
 
-The project supports the FRISH capstone workflow: image-based freshness assessment, IoT-supported shelf-life monitoring, consumer and inspector reports, BFAR review, and LGU enforcement action.
+The portal is part of the FRISH capstone system and connects to the same Firebase project as the FRISH Inspector mobile application. Inspector scans and submitted reports are synchronized with the administration portal through Cloud Firestore.
 
 ## Roles and workflows
 
 ### BFAR-NCR Admin
 
-- Review freshness assessments, including visual indicators, confidence, environmental readings, storage condition, shelf-life, and regulatory decision support.
-- Review submitted reports for completeness, vendor and market details, and supporting evidence.
-- Assign an authorized inspector, complete validation review, and forward confirmed cases to the LGU.
-- Manage inspector accounts, administrator accounts, audit records, notifications, profile settings, and user feedback.
+- Monitor live inspector activity and freshness assessments.
+- Review submitted inspection reports and supporting evidence.
+- Normalize older mobile report records when required.
+- Forward validated reports to the Pasig LGU.
+- Manage inspector and administrator Firestore profiles.
+- Review notifications and audit activity.
+- Send the reviewed LGU conclusion to the original reporter.
 
 ### LGU Market Admin
 
-- Monitor escalated reports, pending actions, and vendors under watch.
-- Review BFAR-forwarded findings and record administrative or enforcement decisions.
-- Maintain vendor compliance and violation-history records for Pasig Public Market.
-- Return final decisions to BFAR-NCR for documentation and monitoring.
+- View reports formally forwarded by BFAR-NCR.
+- Review inspection details and available evidence.
+- Record administrative or enforcement decisions.
+- Return final case decisions to BFAR-NCR.
+- Review Pasig Public Market vendor compliance records.
 
 ## Main modules
 
-- Role-based dashboard
-- Assessment review workspace with filters and detailed inspection records
-- BFAR report review and LGU escalated-report workflow
+- Role-based BFAR and LGU dashboards
+- Live freshness assessment records
+- BFAR report review and LGU escalation workflow
 - Inspector management
-- LGU vendor compliance and violation history
-- Audit trail and notifications
-- User feedback inbox
-- Administrator and profile management
+- Administrator management
+- LGU vendor compliance history
+- Dynamic notifications
+- Audit trail
+- User feedback
+- Administrator profile management
 
 ## Technology
 
 - React 18
 - Vite 5
-- React Router
+- React Router 6
 - React Icons
-- Firebase Authentication, Firestore, and Storage
+- Firebase Authentication
+- Cloud Firestore
+- Firebase Storage integration
 
 ## Getting started
 
 ### Prerequisites
 
-- Node.js 18 or newer
-- npm
+Install the following before running the project:
 
-### Install and run
+- [Node.js](https://nodejs.org/) 18 or newer
+- npm, included with Node.js
+- Git
+- Access to the FRISH Firebase project
 
-```bash
+### 1. Clone the repository
+
+Open a terminal in VS Code and run:
+
+```powershell
+git clone https://github.com/Iver-M/frish-admin.git
+cd frish-admin
+```
+
+If the project was downloaded as a ZIP file, extract it and open the extracted folder in VS Code instead.
+
+### 2. Install dependencies
+
+```powershell
 npm install
+```
+
+### 3. Configure Firebase
+
+Copy the included environment template:
+
+```powershell
+Copy-Item .env.example .env.local
+```
+
+Open `.env.local` and enter the Firebase Web App configuration:
+
+```dotenv
+VITE_USE_FIREBASE=true
+VITE_FIREBASE_API_KEY=your_web_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your_project_id
+VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+VITE_FIREBASE_APP_ID=your_web_app_id
+```
+
+The values are available in Firebase Console under:
+
+```text
+Project settings > General > Your apps > Web app > SDK setup and configuration
+```
+
+Do not commit `.env.local`, passwords, service-account files, or private keys.
+
+### 4. Run the development server
+
+```powershell
 npm run dev
 ```
 
-Open the local address shown in the terminal, usually `http://localhost:5173`.
+Open the address displayed by Vite, normally:
 
-### Production build
+```text
+http://localhost:5173
+```
 
-```bash
+### 5. Create a production build
+
+```powershell
 npm run build
 ```
 
-### Preview the production build
+Preview the generated build with:
 
-```bash
+```powershell
 npm run preview
 ```
 
-## Firebase
+## Firebase user profiles
 
-Firebase sign-in and the Firestore/Storage integration layer are ready to
-connect when your Firebase project is available. Follow [FIREBASE_SETUP.md](./FIREBASE_SETUP.md)
-to configure the project, profiles, and security rules.
+Firebase Authentication accounts require matching Firestore profiles. Create the profile inside the `users` collection and use the account's exact Firebase Authentication UID as the Firestore document ID.
+
+Do not use an Auto-ID or email address as the document ID.
+
+### Inspector profile
+
+```text
+users/{INSPECTOR_AUTH_UID}
+  name: "Inspector Name"
+  email: "inspector@example.com"
+  role: "inspector"
+  accountStatus: "active"
+  marketId: "pasig"
+  marketName: "Pasig Public Market"
+```
+
+### BFAR administrator profile
+
+```text
+users/{BFAR_AUTH_UID}
+  name: "BFAR-NCR Admin"
+  email: "admin@frish.gov.ph"
+  role: "bfar_admin"
+  accountStatus: "active"
+```
+
+### LGU administrator profile
+
+```text
+users/{LGU_AUTH_UID}
+  name: "Pasig Market Admin"
+  email: "lgupasig@frish.gov.ph"
+  role: "market_admin"
+  accountStatus: "active"
+  marketId: "pasig"
+  marketName: "Pasig Public Market"
+```
+
+The Inspector Management and Manage Admins pages create and update Firestore profiles. They do not create Firebase Authentication accounts or passwords. Create the Authentication account first, then register its UID through the appropriate management page.
+
+## Firestore collections
+
+| Collection | Purpose |
+| --- | --- |
+| `users` | Inspector, BFAR, and LGU profiles and access status |
+| `scans` | Freshness assessments submitted by the Inspector app |
+| `reports` | Inspector reports and BFAR/LGU case workflow |
+| `auditLogs` | Administrative actions and workflow history |
+| `reporterNotifications` | Private conclusions sent to original reporters |
+
+## Report workflow
+
+1. An inspector submits a report with the `submitted` status.
+2. BFAR receives the report through a real-time Firestore listener.
+3. BFAR reviews the report and forwards a valid case using `forwarded-lgu`.
+4. The Pasig LGU receives the forwarded report automatically.
+5. The LGU records a decision and changes the report to `resolved`.
+6. BFAR reviews the decision and may send a conclusion to the original reporter.
+
+Inspector-created reports must contain the fields required by the shared Firestore rules, including:
+
+```text
+status: "submitted"
+sourceType: "inspector"
+createdBy.uid: authenticated inspector UID
+createdBy.role: "inspector"
+```
+
+## Assessment records
+
+The Assessment page reads live records from the Firestore `scans` collection. Display codes use the following format:
+
+```text
+DLGBKD - 000
+GG - 000
+```
+
+These are presentation identifiers. The original Firestore document ID remains the database key.
+
+Images stored as mobile `file://` paths are available only on the inspector's device. To display an image in the web portal, upload it to Firebase Storage and save its downloadable URL in Firestore.
+
+## Firestore rules
+
+The mobile application and admin portal share one active Firestore ruleset. The merged rules are stored in [`firestore.rules`](./firestore.rules).
+
+Coordinate rule changes with the Inspector mobile team before deployment. Deploy the rules with:
+
+```powershell
+npx firebase-tools login
+npx firebase-tools deploy --only firestore:rules --project frish-app2026
+```
+
+Only one Firestore ruleset can be active in a Firebase project. Do not deploy separate mobile and web rule files without merging their permissions first.
+
+## Updating a local copy
+
+Before starting new work, download the latest changes:
+
+```powershell
+git pull origin main
+npm install
+```
+
+Run `npm install` again whenever `package.json` or `package-lock.json` changes.
+
+To upload completed changes:
+
+```powershell
+git add .
+git commit -m "Describe the completed changes"
+git pull --rebase origin main
+git push origin main
+```
+
+If Git reports a merge or rebase conflict, resolve the conflict before pushing. Firestore rule conflicts should be reviewed carefully so that mobile and admin permissions are both preserved.
 
 ## Project structure
 
 ```text
 src/
-  components/       Reusable UI components
-  context/          Authentication and role context
-  data/             Prototype data for Pasig Public Market
-  layout/           Shared admin layout and navigation
-  pages/admin/      BFAR and LGU admin modules
-  utils/            Role and market-scoping helpers
+  assets/             Images and visual assets
+  components/         Reusable interface components
+  context/            Authentication and role state
+  data/               Demonstration data used when Firebase is disabled
+  layout/             Shared admin layout and navigation
+  pages/admin/        BFAR and LGU administration modules
+  services/           Firebase, Authentication, and Firestore operations
+  utils/              Record normalization, codes, and shared helpers
 ```
+
+## Troubleshooting
+
+### Firebase is not enabled
+
+Confirm that `.env.local` exists and contains:
+
+```text
+VITE_USE_FIREBASE=true
+```
+
+Restart `npm run dev` after changing environment variables.
+
+### Missing or insufficient permissions
+
+- Confirm that the account has a matching `users/{UID}` document.
+- Confirm that `role`, `accountStatus`, and `marketId` use the expected values.
+- Confirm that the latest merged `firestore.rules` file has been deployed.
+- Sign out and sign in again after changing a user profile.
+
+### An Auth user does not appear in management pages
+
+Authentication users are not automatically added to Firestore. Create a matching `users/{UID}` profile or register the UID through the relevant management page.
+
+### Changes from another computer are missing
+
+Run:
+
+```powershell
+git pull origin main
+npm install
+```
+
+Then restart the development server.
 
 ## Notes
 
-- This is a frontend prototype using local sample data by default.
-- Set `VITE_USE_FIREBASE=true` in a configured `.env.local` file to enable Firebase Authentication. The service layer is ready for live Firestore and Storage records as the sample-data modules are migrated.
-- The data model is intentionally scoped to Pasig Public Market for the current project implementation.
+- The current implementation is scoped to Pasig Public Market.
+- Firebase-enabled modules use real-time Firestore listeners.
+- Demonstration records remain available when `VITE_USE_FIREBASE=false`.
+- See [`FIREBASE_SETUP.md`](./FIREBASE_SETUP.md) for additional Firebase configuration guidance.
