@@ -1,5 +1,12 @@
 # Firebase setup
 
+> **Shared report contract milestone:** contract `1.0.0` does not authorize a
+> Firebase deployment. Consumer `/concernReports`, current Admin `/reports`, and
+> future `/authorityCases` have separate responsibilities. The combined rules,
+> custom-claim authority model, promotion backend, privacy policy, and emulator
+> suite are not implemented. Consumer `PRODUCTION_FIREBASE_APPROVED` remains
+> `false`; do not deploy or access production data for this work.
+
 The portal stays usable with its sample data until Firebase is enabled. When it
 is enabled, Firebase Authentication controls administrator sign-in and
 Firestore is ready for the operational records described in the manuscript.
@@ -48,7 +55,7 @@ LGU profile:
 Only `bfar_admin` and `market_admin` are allowed in the portal. A user with
 `status: "suspended"` is blocked after password verification.
 
-## 4. Deploy security rules
+## 4. Future security rules deployment (not authorized in this milestone)
 
 Install the Firebase CLI, log in, initialize this folder with the Firebase
 project, then run:
@@ -65,7 +72,8 @@ ingestion, enforcement decisions, and immutable audit entries.
 
 - `users` — admin role, status, and market scope.
 - `assessments` — freshness result, sensor readings, shelf life, evidence, and market ID.
-- `reports` — consumer reports, validation state, assignment, final action, and market ID.
+- `reports` — existing Inspector submissions and BFAR/LGU workflow; not Consumer concerns.
+- `authorityCases` — future trusted Consumer-derived cases; runtime disabled.
 - `vendors`, `inspectors`, `feedback`, `notifications`, and `auditLogs` — supporting records.
 
 Each market-scoped record should include `marketId: "pasig"`, since this build

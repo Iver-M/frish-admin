@@ -90,7 +90,7 @@ export default function Reports() {
           <h2>{isBfarAdmin ? 'BFAR report review' : 'Reports forwarded by BFAR-NCR'}</h2>
           <p className="page-header-row__subtitle">
             {isBfarAdmin
-              ? 'Review inspector submissions, assign consumer or follow-up validation, and track the live workflow.'
+              ? 'Review existing inspector submissions and track the live workflow. Prototype consumer concerns are not authority cases and do not enter this queue.'
               : 'Review only the cases formally escalated to Pasig Public Market and return the LGU decision to BFAR-NCR.'}
           </p>
         </div>
@@ -129,7 +129,7 @@ function ReportBoard({ reports, isLive, isBfarAdmin, onOpen }) {
       <div className="bfar-report-board__heading">
         <div>
           <h3>{isBfarAdmin ? (isLive ? 'Submitted report queue' : 'Report review queue') : 'Escalated case queue'}</h3>
-          <p>{isBfarAdmin ? (isLive ? 'Inspector reports are reviewed directly. Consumer and follow-up cases can be assigned for field validation.' : 'Sample records are shown until Firebase data is enabled.') : 'Awaiting-action cases require an LGU decision. Resolved cases remain available as read-only records.'}</p>
+          <p>{isBfarAdmin ? (isLive ? 'Inspector reports are reviewed directly. Consumer prototype concerns remain outside this queue until trusted backend promotion is implemented.' : 'Sample records are shown until Firebase data is enabled.') : 'Awaiting-action cases require an LGU decision. Resolved cases remain available as read-only records.'}</p>
         </div>
         <span>{reports.length} reports</span>
       </div>
