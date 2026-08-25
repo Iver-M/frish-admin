@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test --test-isolation=none",
+    "test:contract": "node --test --test-isolation=none test/sharedReportContract.test.js",
+    "contract:peer:verify": "node contracts/shared-report-contract/verify-peer-drift.cjs ../FRISH"
   },
   "dependencies": {
     "firebase": "^12.17.0",

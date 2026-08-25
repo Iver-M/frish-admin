@@ -2,6 +2,12 @@
 
 FRISH is a role-based administration portal for monitoring fish freshness assessments, report workflows, and market enforcement activity at **Pasig Public Market**.
 
+> Consumer–authority integration is not live. Shared contract `1.0.0` keeps
+> immutable Consumer `/concernReports` separate from current Inspector
+> `/reports` and disabled future `/authorityCases`. A Consumer
+> `prototype_saved` record is not submitted to BFAR. See
+> [`docs/planning/shared-report-contract-admin-note.md`](docs/planning/shared-report-contract-admin-note.md).
+
 The portal is part of the FRISH capstone system and connects to the same Firebase project as the FRISH Inspector mobile application. Inspector scans and submitted reports are synchronized with the administration portal through Cloud Firestore.
 
 ## Roles and workflows
@@ -175,11 +181,16 @@ The Inspector Management and Manage Admins pages create and update Firestore pro
 | --- | --- |
 | `users` | Inspector, BFAR, and LGU profiles and access status |
 | `scans` | Freshness assessments submitted by the Inspector app |
-| `reports` | Inspector reports and BFAR/LGU case workflow |
+| `reports` | Existing Inspector reports and BFAR/LGU workflow; not Consumer concerns |
+| `authorityCases` | Future trusted Consumer-derived authority workflow; runtime disabled |
 | `auditLogs` | Administrative actions and workflow history |
 | `reporterNotifications` | Private conclusions sent to original reporters |
 
 ## Report workflow
+
+This workflow applies only to existing Inspector `/reports`. The portal does
+not subscribe to `/concernReports` or `/authorityCases`, and it does not map
+`prototype_saved` to `submitted`.
 
 1. An inspector submits a report with the `submitted` status.
 2. BFAR receives the report through a real-time Firestore listener.
@@ -222,6 +233,11 @@ npx firebase-tools deploy --only firestore:rules --project frish-app2026
 ```
 
 Only one Firestore ruleset can be active in a Firebase project. Do not deploy separate mobile and web rule files without merging their permissions first.
+
+For shared contract `1.0.0`, deployment remains prohibited: the current Admin
+rules and Consumer emulator rules have not yet been combined and verified.
+Consumer `PRODUCTION_FIREBASE_APPROVED` remains `false`; no production Firebase
+data should be accessed for this milestone.
 
 ## Updating a local copy
 
