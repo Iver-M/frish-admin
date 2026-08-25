@@ -2,13 +2,13 @@
 
 Contract version: `1.0.0`
 
-Authority case schema: `1.0` proposal
+Authority case schema: `1.0` implemented in the emulator-only workflow
 
 Canonical Consumer repository: `towwfiee/FRISH`
 
 Canonical repository path: `docs/planning/shared-consumer-authority-report-contract-v1.0.0.md`
 
-Status: documented and fixture-verified; authority runtime disabled
+Status: documented, fixture-verified, and emulator-enabled; production runtime disabled
 
 ## Confirmed Admin assumptions
 
@@ -23,9 +23,9 @@ anonymous owner. Those documents contain PII (`reporterName` and
 `firebase_emulator_only`, and keep `resultSummary: null`. Admin must not listen
 to, list, read, normalize, update, delete, or display them as submitted cases.
 
-The proposed authority workflow uses a separate
-`/authorityCases/{caseId}` schema `1.0`. It is not enabled. Only a future
-trusted, idempotent, audited backend promotion may validate an immutable
+The emulator authority workflow uses a separate
+`/authorityCases/{caseId}` schema `1.0`. Only the trusted, idempotent, audited
+Functions emulator promotion may validate an immutable
 concern and create a case initially set to `submitted`. No client-side
 promotion or direct Consumer creation is allowed.
 
@@ -69,7 +69,7 @@ authority source. They are not implemented.
 
 ## Milestone guardrails
 
-- `AUTHORITY_CASES_RUNTIME_ENABLED` is `false`; no authority listener exists.
+- `AUTHORITY_CASES_RUNTIME_ENABLED` is true only under the explicit Vite development emulator flag; production builds have no authority listener.
 - Consumer `prototype_saved` is never mapped to `submitted`.
 - Admin never mutates `concernReports`.
 - Existing Inspector `/reports` behavior remains pending a migration plan.

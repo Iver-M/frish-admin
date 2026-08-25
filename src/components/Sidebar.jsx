@@ -10,7 +10,10 @@ import {
   FiUser,
   FiLogOut,
   FiShield,
+  FiInbox,
+  FiBriefcase,
 } from 'react-icons/fi'
+import { AUTHORITY_CASES_RUNTIME_ENABLED } from '../services/authorityCasesBoundary.js'
 import Logo from './common/Logo.jsx'
 import './Sidebar.css'
 
@@ -22,6 +25,10 @@ const NAV_ITEMS = [
   { to: '/dashboard', label: 'Dashboard', icon: FiGrid, roles: ['bfar_admin', 'market_admin'] },
   { to: '/assessments', label: 'Freshness Assessments', icon: FiClipboard, roles: ['bfar_admin'] },
   { to: '/reports', label: 'Reports', icon: FiFileText, roles: ['bfar_admin', 'market_admin'] },
+  ...(AUTHORITY_CASES_RUNTIME_ENABLED ? [
+    { to: '/consumer-intake', label: 'Consumer Intake', icon: FiInbox, roles: ['bfar_admin'] },
+    { to: '/authority-cases', label: 'Authority Cases', icon: FiBriefcase, roles: ['bfar_admin'] },
+  ] : []),
   { to: '/inspectors', label: 'Inspectors', icon: FiUsers, roles: ['bfar_admin'] },
   { to: '/vendors', label: 'Vendors', icon: FiShoppingBag, roles: ['bfar_admin', 'market_admin'] },
   { to: '/audit-trail', label: 'Audit Trail', icon: FiList, roles: ['bfar_admin'] },

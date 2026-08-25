@@ -12,6 +12,8 @@ import Feedback from './pages/admin/feedback/Feedback.jsx'
 import ManageAdmins from './pages/admin/admins/ManageAdmins.jsx'
 import Profile from './pages/admin/profile/Profile.jsx'
 import Notifications from './pages/admin/notifications/Notifications.jsx'
+import ConsumerIntake from './pages/admin/consumer-intake/ConsumerIntake.jsx'
+import AuthorityCases from './pages/admin/authority-cases/AuthorityCases.jsx'
 
 export default function App() {
   return (
@@ -23,6 +25,10 @@ export default function App() {
         <Route path="/assessments" element={<Assessments />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/reports/:reportId" element={<ReportDetail />} />
+        <Route path="/consumer-intake" element={<ConsumerIntake />} />
+        <Route path="/consumer-intake/:reportId" element={<ConsumerIntake />} />
+        <Route path="/authority-cases" element={<AuthorityCases />} />
+        <Route path="/authority-cases/:caseId" element={<AuthorityCases />} />
         <Route path="/inspectors" element={<Inspectors />} />
         <Route path="/vendors" element={<Vendors />} />
         <Route path="/audit-trail" element={<AuditTrail />} />

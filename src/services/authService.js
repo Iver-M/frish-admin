@@ -1,6 +1,6 @@
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import { doc, getDoc } from 'firebase/firestore'
-import { auth, db, isFirebaseEnabled } from './firebase.js'
+import { auth, db, isAuthorityEmulatorEnabled, isFirebaseEnabled } from './firebase.js'
 
 const AUTH_ERROR_MESSAGES = {
   'auth/invalid-credential': 'The email or password is incorrect. Please check your details and try again.',
@@ -54,14 +54,16 @@ export async function signInAdmin(email, password) {
 }
 
 export async function getAdminProfile(firebaseUser) {
+  const token = isAuthorityEmulatorEnabled ? await firebaseUser.getIdTokenResult(true) : null
   const profileSnapshot = await getDoc(doc(db, 'users', firebaseUser.uid))
   if (!profileSnapshot.exists()) throw new Error('This account has no FRISH user profile.')
   const profile = profileSnapshot.data()
-  if (!['bfar_admin', 'market_admin'].includes(profile.role)) throw new Error('This account is not authorized for the admin portal.')
-  const accountStatus = String(profile.accountStatus || profile.status || 'active').toLowerCase()
+  const role = token ? token.claims.role : profile.role
+  const accountStatus = String(token ? token.claims.accountStatus : (profile.accountStatus || profile.status || 'active')).toLowerCase()
+  if (!['bfar_admin', 'market_admin'].includes(role)) throw new Error('This account is not authorized for the admin portal.')
   if (accountStatus === 'suspended') throw new Error('This account has been suspended. Contact BFAR-NCR.')
   if (['inactive', 'disabled'].includes(accountStatus)) throw new Error('This admin account is inactive. Contact BFAR-NCR.')
-  return { uid: firebaseUser.uid, name: profile.name || firebaseUser.displayName || firebaseUser.email, email: firebaseUser.email, role: profile.role, marketId: profile.marketId || null, marketName: profile.marketName || null }
+  return { uid: firebaseUser.uid, name: profile.name || firebaseUser.displayName || firebaseUser.email, email: firebaseUser.email, role, marketId: token?.claims.marketId || profile.marketId || null, marketName: profile.marketName || null }
 }
 
 export function observeAdminSession(callback) {

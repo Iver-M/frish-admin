@@ -1,11 +1,13 @@
 # Firebase setup
 
-> **Shared report contract milestone:** contract `1.0.0` does not authorize a
-> Firebase deployment. Consumer `/concernReports`, current Admin `/reports`, and
-> future `/authorityCases` have separate responsibilities. The combined rules,
-> custom-claim authority model, promotion backend, privacy policy, and emulator
-> suite are not implemented. Consumer `PRODUCTION_FIREBASE_APPROVED` remains
-> `false`; do not deploy or access production data for this work.
+> **Emulator authority milestone:** contract `1.0.0` does not authorize a
+> Firebase deployment. Consumer `/concernReports`, legacy Admin `/reports`, and
+> promoted `/authorityCases` remain separate. The combined rules, custom-claim
+> promotion backend, and Consumer Intake UI are implemented only in the shared
+> local emulator suite documented in
+> [`docs/planning/emulator-consumer-intake.md`](docs/planning/emulator-consumer-intake.md).
+> Consumer `PRODUCTION_FIREBASE_APPROVED` remains `false`; do not deploy or
+> access production data.
 
 The portal stays usable with its sample data until Firebase is enabled. When it
 is enabled, Firebase Authentication controls administrator sign-in and

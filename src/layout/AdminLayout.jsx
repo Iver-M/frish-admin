@@ -14,6 +14,8 @@ const ROUTE_ACCESS = {
   '/dashboard': ['bfar_admin', 'market_admin'],
   '/assessments': ['bfar_admin'],
   '/reports': ['bfar_admin', 'market_admin'],
+  '/consumer-intake': ['bfar_admin'],
+  '/authority-cases': ['bfar_admin'],
   '/inspectors': ['bfar_admin'],
   '/vendors': ['market_admin'],
   '/audit-trail': ['bfar_admin'],
@@ -35,6 +37,8 @@ const BFAR_PAGE_HEADERS = {
   '/dashboard': ['Dashboard', 'Welcome back to FRISH Admin Portal'],
   '/assessments': ['Freshness Assessments', 'Review live scan results submitted by authorized inspectors'],
   '/reports': ['Report Management', 'Review and manage consumer and inspector submitted reports'],
+  '/consumer-intake': ['Consumer Intake', 'Review emulator-only Consumer concerns before explicit promotion'],
+  '/authority-cases': ['Authority Cases', 'Review promoted Consumer authority cases separately from legacy reports'],
   '/inspectors': ['Inspector Management', 'Create, view, and manage inspector account assignments'],
   '/vendors': ['Vendor Management', 'Create, view, and manage vendor records'],
   '/audit-trail': ['Audit Trail', 'Monitor system activities and user actions'],
@@ -63,7 +67,12 @@ export default function AdminLayout() {
 
   // Logged in, but this role isn't allowed on this route — send to Dashboard
   // rather than showing a broken/empty page.
-  const allowedRoles = ROUTE_ACCESS[location.pathname]
+  const routeRoot = location.pathname.startsWith('/consumer-intake/')
+    ? '/consumer-intake'
+    : location.pathname.startsWith('/authority-cases/')
+      ? '/authority-cases'
+      : location.pathname
+  const allowedRoles = ROUTE_ACCESS[routeRoot]
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     return <Navigate to="/dashboard" replace />
   }
@@ -81,7 +90,7 @@ export default function AdminLayout() {
     }
   }
 
-  const [pageTitle, pageSubtitle] = BFAR_PAGE_HEADERS[location.pathname] || ['FRISH Admin Portal', 'Manage your FRISH administration workspace.']
+  const [pageTitle, pageSubtitle] = BFAR_PAGE_HEADERS[routeRoot] || ['FRISH Admin Portal', 'Manage your FRISH administration workspace.']
   return (
     <BannerActionContext.Provider value={bannerActionTarget}>
     <div className="admin-layout">
