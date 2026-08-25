@@ -64,7 +64,7 @@ test('contract version mismatch is detected', () => {
   )
 })
 
-test('authority cases service boundary remains disabled', () => {
+test('authority cases service boundary remains disabled without the emulator flag', () => {
   assert.equal(AUTHORITY_CASES_COLLECTION, 'authorityCases')
   assert.equal(AUTHORITY_CASES_RUNTIME_ENABLED, false)
   assert.throws(requireAuthorityCasesRuntime, (error) => error.code === 'authority-cases-disabled')

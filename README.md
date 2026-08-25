@@ -2,11 +2,11 @@
 
 FRISH is a role-based administration portal for monitoring fish freshness assessments, report workflows, and market enforcement activity at **Pasig Public Market**.
 
-> Consumer–authority integration is not live. Shared contract `1.0.0` keeps
+> Consumer–authority integration is emulator-only and is not live in production. Shared contract `1.0.0` keeps
 > immutable Consumer `/concernReports` separate from current Inspector
-> `/reports` and disabled future `/authorityCases`. A Consumer
+> `/reports` and explicitly promoted `/authorityCases`. A Consumer
 > `prototype_saved` record is not submitted to BFAR. See
-> [`docs/planning/shared-report-contract-admin-note.md`](docs/planning/shared-report-contract-admin-note.md).
+> [`docs/planning/emulator-consumer-intake.md`](docs/planning/emulator-consumer-intake.md).
 
 The portal is part of the FRISH capstone system and connects to the same Firebase project as the FRISH Inspector mobile application. Inspector scans and submitted reports are synchronized with the administration portal through Cloud Firestore.
 
@@ -223,7 +223,7 @@ Images stored as mobile `file://` paths are available only on the inspector's de
 
 ## Firestore rules
 
-The mobile application and admin portal share one active Firestore ruleset. The merged rules are stored in [`firestore.rules`](./firestore.rules).
+The canonical combined emulator rules are stored in the sibling Consumer/backend repository at `../FRISH/firestore.rules`. This repository's historical rules file remains a legacy Admin reference and must not be deployed for the authority milestone.
 
 Coordinate rule changes with the Inspector mobile team before deployment. Deploy the rules with:
 
@@ -234,8 +234,8 @@ npx firebase-tools deploy --only firestore:rules --project frish-app2026
 
 Only one Firestore ruleset can be active in a Firebase project. Do not deploy separate mobile and web rule files without merging their permissions first.
 
-For shared contract `1.0.0`, deployment remains prohibited: the current Admin
-rules and Consumer emulator rules have not yet been combined and verified.
+For shared contract `1.0.0`, deployment remains prohibited. The combined rules
+are emulator-tested only and have not been approved for production.
 Consumer `PRODUCTION_FIREBASE_APPROVED` remains `false`; no production Firebase
 data should be accessed for this milestone.
 
