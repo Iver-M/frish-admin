@@ -78,7 +78,7 @@ export default function ConsumerIntake() {
 }
 
 function Disclosure() {
-  return <div className="intake-disclosure"><strong>Emulator prototype — not connected to production Firebase.</strong><span>Saving a Consumer concern does not submit it. Only this explicit BFAR acceptance creates an authority case.</span></div>
+  return <div className="intake-disclosure"><strong>Emulator prototype — not connected to production Firebase.</strong><span>Saving a Consumer concern does not submit it. Only explicit BFAR acceptance creates an authority case. Reporter contacts are protected, and linked scan evidence is not available in this general intake view.</span></div>
 }
 
 function Disabled() {
@@ -98,7 +98,7 @@ function List({ concerns }) {
 function Detail({ concern, onAccept, promoting }) {
   return <section className="intake-panel intake-detail"><header><div><p className="workspace-kicker">INTAKE REVIEW</p><h2>{concern.vendorOrStall}</h2></div><span className="prototype-badge">prototype_saved</span></header>
     <dl><Fact label="Report ID" value={concern.reportId} /><Fact label="Market" value={concern.marketName} /><Fact label="Reason" value={label(concern.reason)} /><Fact label="Description" value={concern.description || 'None provided'} /><Fact label="Analysis" value="Unavailable — no temporary model output is authority evidence" /></dl>
-    <p className="intake-privacy">Reporter email, reporter identity, anonymous owner UID, evidence paths, and temporary model class/confidence are excluded from this view.</p>
+    <p className="intake-privacy">Reporter contacts are protected and may be accessed only by BFAR through an approved follow-up workflow. LGU and Inspectors do not receive them. This concern remains linked to its Consumer scan even though images are not shown; secure evidence viewing is not yet enabled. Anonymous owner UID, evidence paths, precise GPS, and temporary model class/confidence are excluded.</p>
     <div className="intake-actions"><Link className="btn btn-outline" to="/consumer-intake">Back to intake</Link><button className="btn btn-primary" disabled={promoting} onClick={onAccept}>{promoting ? 'Promoting…' : 'Accept as authority case'}</button></div>
   </section>
 }

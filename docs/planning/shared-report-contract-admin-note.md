@@ -8,6 +8,8 @@ Canonical Consumer repository: `towwfiee/FRISH`
 
 Canonical repository path: `docs/planning/shared-consumer-authority-report-contract-v1.0.0.md`
 
+Canonical privacy policy: `docs/planning/report-privacy-location-evidence-policy-v1.0.0.md` in the Consumer repository, policy version `1.0.0`
+
 Status: documented, fixture-verified, and emulator-enabled; production runtime disabled
 
 ## Confirmed Admin assumptions
@@ -53,12 +55,14 @@ The temporary Consumer model output is not official or authority-actionable.
 `experimental_unapproved`; only an approved backend record with complete
 model/dataset provenance and trusted timestamp may populate it.
 
-The contract recommends an opaque `reporterRef` and separate protected
-reporter-contact document. Owner approval is still required for BFAR email
-visibility, LGU identity/contact visibility, copying anonymous UIDs, evidence
-retention and role access, pre-promotion withdrawal, and whether protected
-reporter documents are retained at all. Defaults minimize data and deny
-access.
+Privacy policy `1.0.0` establishes the emulator baseline: BFAR may read the
+protected reporter-contact compartment only for legitimate follow-up; general
+views do not load it. LGU and Inspectors receive no reporter identity, email,
+Consumer UID, or contact documents. The UID remains backend-only. BFAR and
+assigned-Inspector evidence require a future short-lived, case-authorized,
+audited callable; LGU evidence remains disabled. Production retention,
+withdrawal, deletion, legal hold, backup, and evidence procedures still await
+formal BFAR/LGU/project-owner approval.
 
 There is one deployed Firestore ruleset per Firebase project. A future merged
 ruleset must preserve Consumer owner behavior and current Inspector/Admin
