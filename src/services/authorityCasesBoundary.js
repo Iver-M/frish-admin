@@ -5,6 +5,24 @@ import { db, functions, isAuthorityEmulatorEnabled } from './firebase.js'
 export const AUTHORITY_CASES_COLLECTION = 'authorityCases'
 export const AUTHORITY_CASES_RUNTIME_ENABLED = isAuthorityEmulatorEnabled
 
+const AUTHORITY_CASE_VIEW_FIELDS = Object.freeze([
+  'id', 'schemaVersion', 'caseId', 'sourceConcernReportId', 'sourceScanId',
+  'reporterRef', 'sourceType', 'marketId', 'assignedMarket', 'title',
+  'vendorOrStall', 'reason', 'description', 'reporterContactPolicy',
+  'evidenceReferences', 'analysisSummary', 'analysisTrustState', 'status',
+  'assignedInspectorId', 'assignedInspectorName', 'createdAt', 'updatedAt',
+  'promotedAt', 'promotedBy', 'version',
+])
+
+export function sanitizeAuthorityCase(record) {
+  if (!record || typeof record !== 'object') return null
+  return Object.fromEntries(
+    AUTHORITY_CASE_VIEW_FIELDS
+      .filter((field) => Object.prototype.hasOwnProperty.call(record, field))
+      .map((field) => [field, record[field]]),
+  )
+}
+
 export function requireAuthorityCasesRuntime() {
   if (AUTHORITY_CASES_RUNTIME_ENABLED) return true
   const error = new Error('Authority cases are available only when the local emulator feature flag is enabled.')
@@ -32,13 +50,13 @@ export function promoteConsumerConcern(reportId, intake = {}) {
 export async function listAuthorityCases() {
   requireAuthorityCasesRuntime()
   const snapshot = await getDocs(query(collection(db, AUTHORITY_CASES_COLLECTION), orderBy('createdAt', 'desc')))
-  return snapshot.docs.map((record) => ({ id: record.id, ...record.data() }))
+  return snapshot.docs.map((record) => sanitizeAuthorityCase({ id: record.id, ...record.data() }))
 }
 
 export async function getAuthorityCase(caseId) {
   requireAuthorityCasesRuntime()
   const snapshot = await getDoc(doc(db, AUTHORITY_CASES_COLLECTION, caseId))
-  return snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null
+  return snapshot.exists() ? sanitizeAuthorityCase({ id: snapshot.id, ...snapshot.data() }) : null
 }
 
 export function authorityErrorMessage(error) {

@@ -4,6 +4,7 @@ import { test } from 'node:test'
 import {
   AUTHORITY_CASES_RUNTIME_ENABLED,
   authorityErrorMessage,
+  sanitizeAuthorityCase,
 } from '../src/services/authorityCasesBoundary.js'
 
 const intakeSource = await readFile(new URL('../src/pages/admin/consumer-intake/ConsumerIntake.jsx', import.meta.url), 'utf8')
@@ -29,7 +30,27 @@ test('Consumer Intake and Authority Cases routes are BFAR-only', () => {
 
 test('general authority case view calls out privacy exclusions and status separation', () => {
   assert.match(caseSource, /separate from legacy Inspector reports/)
-  assert.match(caseSource, /no reporter email, anonymous Consumer UID/)
+  assert.match(caseSource, /Reporter contacts are protected/)
+  assert.match(caseSource, /LGU and Inspectors do not receive/)
+  assert.match(caseSource, /Secure evidence viewing is not yet enabled/)
+  assert.match(caseSource, /no precise GPS, image data, Storage path/)
+})
+
+test('authority records are defensively allowlisted before general rendering', () => {
+  const safe = sanitizeAuthorityCase({
+    id: 'case-1', caseId: 'case-1', title: 'Concern', status: 'submitted',
+    reporterEmail: 'private@example.test', ownerId: 'consumer-1',
+    imageBytes: 'base64', downloadUrl: 'https://example.test/private',
+    latitude: 14.5, longitude: 121.0,
+  })
+  assert.deepEqual(safe, { id: 'case-1', caseId: 'case-1', title: 'Concern', status: 'submitted' })
+})
+
+test('intake explains protected contacts and unavailable linked evidence without leaking fields', () => {
+  assert.match(intakeSource, /Reporter contacts are protected/)
+  assert.match(intakeSource, /LGU and Inspectors do not receive them/)
+  assert.match(intakeSource, /remains linked to its Consumer scan even though images are not shown/)
+  assert.match(intakeSource, /secure evidence viewing is not yet enabled/i)
 })
 
 test('callable failures map to actionable authorization, validation, and emulator messages', () => {

@@ -1,5 +1,9 @@
 # Emulator-only Consumer Intake
 
+Canonical privacy baseline: sibling Consumer repository
+`docs/planning/report-privacy-location-evidence-policy-v1.0.0.md`, policy
+version `1.0.0`. This is an engineering baseline, not final legal approval.
+
 The portal exposes Consumer Intake and Consumer Authority Cases only in Vite
 development mode when `VITE_USE_FIREBASE=true`,
 `VITE_AUTHORITY_CASES_EMULATOR=true`, and the Firebase project is
@@ -32,7 +36,13 @@ which is unchanged. No production authority listener is enabled. General views
 contain no reporter identity/email, Consumer UID, evidence path/URI/URL, or
 experimental class/confidence. Protected contacts are not loaded.
 
+General lists defensively allowlist authority-case fields. Reporter contacts
+and source mappings are never loaded by these screens. A missing image means
+the secure viewer is disabled, not that the case lacks a linked Consumer scan.
+LGU receives no reporter contact details, and precise Consumer GPS is excluded
+from general Admin views.
+
 Consumer notification and secure evidence delivery are deferred. Do not deploy
-this portal or Firebase resources from this milestone. Retention, withdrawal,
-deletion, legal-hold, evidence, contact-sharing, and audit policies still need
-project-owner approval.
+this portal or Firebase resources from this milestone. Production retention,
+withdrawal, deletion, legal-hold, backup, evidence-operation, and audit
+decisions still require formal BFAR/LGU/project-owner approval.
