@@ -63,7 +63,7 @@ export async function getAdminProfile(firebaseUser) {
   if (!['bfar_admin', 'market_admin'].includes(role)) throw new Error('This account is not authorized for the admin portal.')
   if (accountStatus === 'suspended') throw new Error('This account has been suspended. Contact BFAR-NCR.')
   if (['inactive', 'disabled'].includes(accountStatus)) throw new Error('This admin account is inactive. Contact BFAR-NCR.')
-  return { uid: firebaseUser.uid, name: profile.name || firebaseUser.displayName || firebaseUser.email, email: firebaseUser.email, role, marketId: token?.claims.marketId || profile.marketId || null, marketName: profile.marketName || null }
+  return { uid: firebaseUser.uid, name: profile.name || firebaseUser.displayName || firebaseUser.email, email: firebaseUser.email, role, accountStatus, marketId: token?.claims.marketId || profile.marketId || null, marketName: profile.marketName || null }
 }
 
 export function observeAdminSession(callback) {
