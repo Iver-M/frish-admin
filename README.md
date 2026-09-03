@@ -131,8 +131,14 @@ audited request; no invisible retry is performed.
 
 Only `submitted`, `assigned`, `in_progress`, and `forwarded_lgu` cases expose
 the actions. LGU, Inspector, inactive, unauthenticated, resolved, and closed
-access remains disabled. No Download or Save action is provided. Production
+access remains disabled; rejected and unpromoted concerns are also denied by
+the backend. No Download, Save, Print, or Share action is provided. Production
 builds fail the development gate even if a local flag is accidentally supplied.
+
+Final emulator/browser verification confirmed authenticated eyes/skin and gills
+display, temporary Blob replacement and revocation, deterministic backend-only
+audit, immutable source evidence, safe restricted-role failures, and recovery
+after emulator restart. Production Firebase was neither accessed nor deployed.
 
 ### 4. Run the development server
 

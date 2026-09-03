@@ -58,6 +58,8 @@ and the viewer disclosure reinforce that evidence must not be copied or shared.
 Every request is independently authorized and audited. Manual Retry creates a
 new intentional request; failures retain no Blob. LGU, Inspector, inactive
 BFAR, resolved, closed, malformed, and unauthenticated access remains denied.
+Rejected and unpromoted concerns remain denied as well. The application exposes
+no Download, Save, Print, Share, audit-viewing, or persistent-cache action.
 
 Consumer notification is implemented separately, and the secure BFAR evidence
 backend plus temporary viewer are emulator-only. Inspector/LGU evidence and
@@ -65,3 +67,9 @@ production evidence remain deferred. Do not deploy this portal or Firebase
 resources from this milestone. Production retention,
 withdrawal, deletion, legal-hold, backup, evidence-operation, and audit
 decisions still require formal BFAR/LGU/project-owner approval.
+
+Final cross-repository verification on 2026-09-03 passed the complete Admin
+suite, the disabled-production build, backend/Rules/E2E suites, contract drift,
+and live browser checks for Blob creation, replacement, close/navigation/session
+cleanup, privacy wording, and restricted actions. The security diff review found
+no reportable issue. Production Firebase was neither accessed nor deployed.
