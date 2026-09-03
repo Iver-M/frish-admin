@@ -8,6 +8,9 @@ The portal exposes Consumer Intake and Consumer Authority Cases only in Vite
 development mode when `VITE_USE_FIREBASE=true`,
 `VITE_AUTHORITY_CASES_EMULATOR=true`, and the Firebase project is
 `frish-app2026`. Production builds fail this gate even if the flag is supplied.
+Secure evidence additionally requires `VITE_AUTHORITY_EVIDENCE_EMULATOR=true`,
+the documented local `getAuthorityCaseEvidence` endpoint, an approved Vite
+origin, and active `bfar_admin` custom claims. Its safe default is false.
 
 Use the Auth, Firestore, Storage, Functions, and UI emulators configured in the
 sibling `FRISH` repository. Copy `.env.example` to `.env.local`, populate only
@@ -16,6 +19,8 @@ the public emulator web-app configuration, and set:
 ```text
 VITE_USE_FIREBASE=true
 VITE_AUTHORITY_CASES_EMULATOR=true
+VITE_AUTHORITY_EVIDENCE_EMULATOR=true
+VITE_AUTHORITY_EVIDENCE_ENDPOINT=http://127.0.0.1:5001/frish-app2026/asia-southeast1/getAuthorityCaseEvidence
 VITE_FIREBASE_PROJECT_ID=frish-app2026
 ```
 
@@ -38,11 +43,33 @@ experimental class/confidence. Protected contacts are not loaded.
 
 General lists defensively allowlist authority-case fields. Reporter contacts
 and source mappings are never loaded by these screens. A missing image means
-the secure viewer is disabled, not that the case lacks a linked Consumer scan.
-LGU receives no reporter contact details, and precise Consumer GPS is excluded
-from general Admin views.
+evidence may be unavailable; it does not prove that no Consumer scan is linked.
+For eligible `submitted`, `assigned`, `in_progress`, and `forwarded_lgu` cases,
+an active BFAR administrator can intentionally open eyes/skin or gills through
+the authenticated local endpoint. The UI sends only case ID, evidence type,
+and a new UUID action ID. It never sends or renders a Storage path, owner/scan
+ID, location, reporter contact, or backend linkage.
 
-Consumer notification and secure evidence delivery are deferred. Do not deploy
-this portal or Firebase resources from this milestone. Production retention,
+The response becomes one temporary in-memory Blob URL. Replacement, close,
+case change, sign-out, cancellation, and unmount abort pending work and revoke
+the URL. No bytes, Base64, URL, or evidence identifier enters browser storage,
+route state, logs, analytics, or a download action. Backend no-store headers
+and the viewer disclosure reinforce that evidence must not be copied or shared.
+Every request is independently authorized and audited. Manual Retry creates a
+new intentional request; failures retain no Blob. LGU, Inspector, inactive
+BFAR, resolved, closed, malformed, and unauthenticated access remains denied.
+Rejected and unpromoted concerns remain denied as well. The application exposes
+no Download, Save, Print, Share, audit-viewing, or persistent-cache action.
+
+Consumer notification is implemented separately, and the secure BFAR evidence
+backend plus temporary viewer are emulator-only. Inspector/LGU evidence and
+production evidence remain deferred. Do not deploy this portal or Firebase
+resources from this milestone. Production retention,
 withdrawal, deletion, legal-hold, backup, evidence-operation, and audit
 decisions still require formal BFAR/LGU/project-owner approval.
+
+Final cross-repository verification on 2026-09-03 passed the complete Admin
+suite, the disabled-production build, backend/Rules/E2E suites, contract drift,
+and live browser checks for Blob creation, replacement, close/navigation/session
+cleanup, privacy wording, and restricted actions. The security diff review found
+no reportable issue. Production Firebase was neither accessed nor deployed.

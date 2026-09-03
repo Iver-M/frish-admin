@@ -93,6 +93,9 @@ Open `.env.local` and enter the Firebase Web App configuration:
 
 ```dotenv
 VITE_USE_FIREBASE=true
+VITE_AUTHORITY_CASES_EMULATOR=true
+VITE_AUTHORITY_EVIDENCE_EMULATOR=false
+VITE_AUTHORITY_EVIDENCE_ENDPOINT=http://127.0.0.1:5001/frish-app2026/asia-southeast1/getAuthorityCaseEvidence
 VITE_FIREBASE_API_KEY=your_web_api_key
 VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
 VITE_FIREBASE_PROJECT_ID=your_project_id
@@ -108,6 +111,34 @@ Project settings > General > Your apps > Web app > SDK setup and configuration
 ```
 
 Do not commit `.env.local`, passwords, service-account files, or private keys.
+
+### Secure authority evidence emulator
+
+The promoted Consumer authority-case viewer is disabled by default. For an
+approved local emulator session only, set
+`VITE_AUTHORITY_EVIDENCE_EMULATOR=true` in the untracked `.env.local` file.
+The viewer also requires Vite development mode, the existing authority emulator
+flag, project `frish-app2026`, an approved `localhost:5173` or
+`127.0.0.1:5173` page origin, and an active `bfar_admin` custom claim.
+
+Evidence is fetched from the local Functions endpoint with a freshly refreshed
+Firebase ID token. The browser receives JPEG/PNG bytes, creates one temporary
+in-memory Blob URL for the open viewer, and revokes it on close, replacement,
+case change, sign-out, cancellation, or unmount. It never reads Storage directly
+or persists bytes, Base64, object URLs, evidence paths, or download tokens.
+Access is audited by the trusted backend. Manual Retry starts a new intentional
+audited request; no invisible retry is performed.
+
+Only `submitted`, `assigned`, `in_progress`, and `forwarded_lgu` cases expose
+the actions. LGU, Inspector, inactive, unauthenticated, resolved, and closed
+access remains disabled; rejected and unpromoted concerns are also denied by
+the backend. No Download, Save, Print, or Share action is provided. Production
+builds fail the development gate even if a local flag is accidentally supplied.
+
+Final emulator/browser verification confirmed authenticated eyes/skin and gills
+display, temporary Blob replacement and revocation, deterministic backend-only
+audit, immutable source evidence, safe restricted-role failures, and recovery
+after emulator restart. Production Firebase was neither accessed nor deployed.
 
 ### 4. Run the development server
 
@@ -182,7 +213,7 @@ The Inspector Management and Manage Admins pages create and update Firestore pro
 | `users` | Inspector, BFAR, and LGU profiles and access status |
 | `scans` | Freshness assessments submitted by the Inspector app |
 | `reports` | Existing Inspector reports and BFAR/LGU workflow; not Consumer concerns |
-| `authorityCases` | Future trusted Consumer-derived authority workflow; runtime disabled |
+| `authorityCases` | Emulator-only promoted Consumer authority workflow |
 | `auditLogs` | Administrative actions and workflow history |
 | `reporterNotifications` | Private conclusions sent to original reporters |
 

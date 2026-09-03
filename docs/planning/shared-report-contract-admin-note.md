@@ -58,22 +58,27 @@ model/dataset provenance and trusted timestamp may populate it.
 Privacy policy `1.0.0` establishes the emulator baseline: BFAR may read the
 protected reporter-contact compartment only for legitimate follow-up; general
 views do not load it. LGU and Inspectors receive no reporter identity, email,
-Consumer UID, or contact documents. The UID remains backend-only. BFAR and
-assigned-Inspector evidence require a future short-lived, case-authorized,
-audited callable; LGU evidence remains disabled. Production retention,
+Consumer UID, or contact documents. The UID remains backend-only. Phase 5
+implements active-BFAR-only, case-authorized, audited evidence bytes in the
+emulator for four approved nonterminal statuses. The Admin holds the result
+only in a temporary revoked Blob URL and receives no Storage path or reusable
+URL. Inspector and LGU evidence remain disabled. Production retention,
 withdrawal, deletion, legal hold, backup, and evidence procedures still await
 formal BFAR/LGU/project-owner approval.
 
 There is one deployed Firestore ruleset per Firebase project. A future merged
 ruleset must preserve Consumer owner behavior and current Inspector/Admin
 behavior while adding strict authority case, evidence, reporter contact, audit,
-and default-deny rules. Current role checks use mutable `/users` profiles;
-backend-issued Firebase Auth custom claims are recommended as the future
-authority source. They are not implemented.
+and default-deny rules. Legacy display surfaces may still use `/users`, while
+emulator authority and evidence operations require verified Firebase Auth
+custom claims.
 
 ## Milestone guardrails
 
 - `AUTHORITY_CASES_RUNTIME_ENABLED` is true only under the explicit Vite development emulator flag; production builds have no authority listener.
+- The separate evidence gate defaults off and additionally requires an active
+  BFAR claim, approved local endpoint/origin, eligible case status, and one
+  intentional UUID request. No client Storage access or download action exists.
 - Consumer `prototype_saved` is never mapped to `submitted`.
 - Admin never mutates `concernReports`.
 - Existing Inspector `/reports` behavior remains pending a migration plan.

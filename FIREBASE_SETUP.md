@@ -3,7 +3,8 @@
 > **Emulator authority milestone:** contract `1.0.0` does not authorize a
 > Firebase deployment. Consumer `/concernReports`, legacy Admin `/reports`, and
 > promoted `/authorityCases` remain separate. The combined rules, custom-claim
-> promotion backend, and Consumer Intake UI are implemented only in the shared
+> promotion/evidence backend, Consumer Intake UI, and temporary BFAR evidence
+> viewer are implemented only in the shared
 > local emulator suite documented in
 > [`docs/planning/emulator-consumer-intake.md`](docs/planning/emulator-consumer-intake.md).
 > Consumer `PRODUCTION_FIREBASE_APPROVED` remains `false`; do not deploy or
@@ -75,7 +76,8 @@ ingestion, enforcement decisions, and immutable audit entries.
 - `users` — admin role, status, and market scope.
 - `assessments` — freshness result, sensor readings, shelf life, evidence, and market ID.
 - `reports` — existing Inspector submissions and BFAR/LGU workflow; not Consumer concerns.
-- `authorityCases` — future trusted Consumer-derived cases; runtime disabled.
+- `authorityCases` — emulator-only trusted Consumer-derived cases; the active
+  BFAR evidence viewer uses the backend endpoint and never reads Storage directly.
 - `vendors`, `inspectors`, `feedback`, `notifications`, and `auditLogs` — supporting records.
 
 Each market-scoped record should include `marketId: "pasig"`, since this build

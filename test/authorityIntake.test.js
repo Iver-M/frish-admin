@@ -32,7 +32,7 @@ test('general authority case view calls out privacy exclusions and status separa
   assert.match(caseSource, /separate from legacy Inspector reports/)
   assert.match(caseSource, /Reporter contacts are protected/)
   assert.match(caseSource, /LGU and Inspectors do not receive/)
-  assert.match(caseSource, /Secure evidence viewing is not yet enabled/)
+  assert.match(caseSource, /secure linked-evidence viewing requires its separate local emulator flag/)
   assert.match(caseSource, /no precise GPS, image data, Storage path/)
 })
 
