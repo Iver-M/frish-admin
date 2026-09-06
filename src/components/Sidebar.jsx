@@ -32,7 +32,7 @@ const NAV_ITEMS = [
   { to: '/inspectors', label: 'Inspectors', icon: FiUsers, roles: ['bfar_admin'] },
   { to: '/vendors', label: 'Vendors', icon: FiShoppingBag, roles: ['bfar_admin', 'market_admin'] },
   { to: '/audit-trail', label: 'Audit Trail', icon: FiList, roles: ['bfar_admin'] },
-  { to: '/feedback', label: 'User Feedback', icon: FiMessageSquare, roles: ['bfar_admin', 'market_admin'] },
+  { to: '/feedback', label: 'User Feedback', icon: FiMessageSquare, roles: ['bfar_admin'] },
   { to: '/admins', label: 'Manage Admins', icon: FiShield, roles: ['bfar_admin'] },
   { to: '/profile', label: 'Profile', icon: FiUser, roles: ['bfar_admin', 'market_admin'] },
 ]

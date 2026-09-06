@@ -95,6 +95,7 @@ Open `.env.local` and enter the Firebase Web App configuration:
 VITE_USE_FIREBASE=true
 VITE_AUTHORITY_CASES_EMULATOR=true
 VITE_AUTHORITY_EVIDENCE_EMULATOR=false
+VITE_CONSUMER_FEEDBACK_EMULATOR=false
 VITE_AUTHORITY_EVIDENCE_ENDPOINT=http://127.0.0.1:5001/frish-app2026/asia-southeast1/getAuthorityCaseEvidence
 VITE_FIREBASE_API_KEY=your_web_api_key
 VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
@@ -111,6 +112,19 @@ Project settings > General > Your apps > Web app > SDK setup and configuration
 ```
 
 Do not commit `.env.local`, passwords, service-account files, or private keys.
+
+### Consumer feedback emulator inbox
+
+The User Feedback page remains sample-only by default. To show Consumer feedback
+from the local emulator suite, set `VITE_CONSUMER_FEEDBACK_EMULATOR=true`. This
+also requires Vite development mode, `VITE_USE_FIREBASE=true`,
+`VITE_AUTHORITY_CASES_EMULATOR=true`, project `frish-app2026`, and fresh Firebase
+claims for an active BFAR Admin.
+
+The page calls the local `listConsumerFeedback` Function and never reads
+Firestore directly. It displays only an anonymous reference, rating, text,
+app/platform versions and submission time. The inbox has no mutation controls or
+private operational data. The flag defaults to false and production fails closed.
 
 ### Secure authority evidence emulator
 
