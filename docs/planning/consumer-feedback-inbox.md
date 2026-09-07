@@ -59,8 +59,11 @@ covered deterministically. The callable returns one newest-first page capped at
 The final Consumer/backend totals are 399 Consumer tests, 56 Functions tests, 79
 Firestore Rules cases and 7 Storage Rules cases. All four emulator E2Es and both
 shared-contract drift checks passed, including unchanged Firestore and Storage
-hashes across Admin reads. No physical Android device was connected for the final
-rerun, so Consumer UI lifecycle acceptance is recorded from deterministic tests
-and the real persistence E2E. The audit reports 2 moderate React Router findings;
+hashes across Admin reads. Physical Consumer acceptance subsequently passed on a
+Xiaomi M2101K6G running Android 13 against the same local emulator contract. It
+verified accessible rating/limit validation, duplicate suppression, confirmed
+receipts, an emulator outage with retained same-submission Retry, edit-after-failure
+identity replacement, four unique exact-schema documents, and zero unrelated
+Firestore or Storage writes. The audit reports 2 moderate React Router findings;
 the offered remediation is a breaking major upgrade and was not force-applied.
 Production Firebase remained untouched and `PRODUCTION_FIREBASE_APPROVED=false`.
