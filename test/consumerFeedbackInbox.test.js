@@ -86,6 +86,9 @@ test('request guard rejects stale, retry-replaced, sign-out, and unmounted resul
   const afterAccountChange = guard.begin()
   guard.unmount()
   assert.equal(guard.isCurrent(afterAccountChange), false)
+  guard.mount()
+  const afterStrictModeRemount = guard.begin()
+  assert.equal(guard.isCurrent(afterStrictModeRemount), true)
 })
 
 test('feedback page is read-only, handles every load state, and never renders private fields in live cards', () => {

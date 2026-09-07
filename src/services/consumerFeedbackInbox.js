@@ -114,6 +114,7 @@ export function createFeedbackInboxRequestGuard() {
   let generation = 0
   let active = true
   return {
+    mount() { active = true },
     begin() { generation += 1; return generation },
     isCurrent(token) { return active && token === generation },
     invalidate() { generation += 1 },

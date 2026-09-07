@@ -50,6 +50,11 @@ export default function Feedback() {
   const canLoad = canViewConsumerFeedback(CONSUMER_FEEDBACK_RUNTIME_ENABLED, user)
   const userKey = `${user?.uid || 'none'}:${user?.role || 'none'}:${user?.accountStatus || 'none'}`
 
+  useEffect(() => {
+    guardRef.current.mount()
+    return () => guardRef.current.unmount()
+  }, [])
+
   const load = useCallback(async () => {
     if (!canLoad) return
     const token = guardRef.current.begin()
@@ -69,8 +74,6 @@ export default function Feedback() {
     if (canLoad) void load()
     return () => guardRef.current.invalidate()
   }, [canLoad, load, userKey])
-
-  useEffect(() => () => guardRef.current.unmount(), [])
 
   const sampleItems = useMemo(() => getFeedback(), [])
   const live = CONSUMER_FEEDBACK_RUNTIME_ENABLED
