@@ -360,3 +360,6 @@ Then restart the development server.
 - Firebase-enabled modules use real-time Firestore listeners.
 - Demonstration records remain available when `VITE_USE_FIREBASE=false`.
 - See [`FIREBASE_SETUP.md`](./FIREBASE_SETUP.md) for additional Firebase configuration guidance.
+
+
+Online Consumer Feedback is restricted to controlled team test data and an active-BFAR read-only inbox. Other shared modules remain emulator-only and production remains disabled. See [Checkpoint 1](docs/planning/online-feedback-checkpoint-1.md).

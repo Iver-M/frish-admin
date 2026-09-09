@@ -1,3 +1,4 @@
+import { FEEDBACK_MODE } from './feedbackEnvironment.js'
 import { getApps, initializeApp } from 'firebase/app'
 import { connectAuthEmulator, getAuth } from 'firebase/auth'
 import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore'
@@ -14,7 +15,7 @@ const firebaseConfig = {
   appId: runtimeEnv.VITE_FIREBASE_APP_ID,
 }
 
-export const isFirebaseEnabled = runtimeEnv.VITE_USE_FIREBASE === 'true' && Boolean(firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.appId)
+export const isFirebaseEnabled = FEEDBACK_MODE !== 'blocked' && runtimeEnv.VITE_USE_FIREBASE === 'true' && Boolean(firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.appId)
 export const isAuthorityEmulatorEnabled = Boolean(runtimeEnv.DEV
   && runtimeEnv.VITE_AUTHORITY_CASES_EMULATOR === 'true'
   && firebaseConfig.projectId === 'frish-app2026'
@@ -22,8 +23,8 @@ export const isAuthorityEmulatorEnabled = Boolean(runtimeEnv.DEV
 
 const app = isFirebaseEnabled ? (getApps()[0] || initializeApp(firebaseConfig)) : null
 export const auth = app ? getAuth(app) : null
-export const db = app ? getFirestore(app) : null
-export const storage = app ? getStorage(app) : null
+export const db = app && FEEDBACK_MODE === 'emulator' ? getFirestore(app) : null
+export const storage = app && FEEDBACK_MODE === 'emulator' ? getStorage(app) : null
 export const functions = app ? getFunctions(app, 'asia-southeast1') : null
 
 if (isAuthorityEmulatorEnabled && !globalThis.__FRISH_AUTHORITY_EMULATORS_CONNECTED__) {

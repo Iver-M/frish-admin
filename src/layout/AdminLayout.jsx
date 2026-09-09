@@ -1,3 +1,4 @@
+import { FEEDBACK_MODE } from '../services/feedbackEnvironment.js'
 import { createContext, useContext, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Outlet, Navigate, useNavigate, useLocation } from 'react-router-dom'
@@ -42,7 +43,7 @@ const BFAR_PAGE_HEADERS = {
   '/inspectors': ['Inspector Management', 'Create, view, and manage inspector account assignments'],
   '/vendors': ['Vendor Management', 'Create, view, and manage vendor records'],
   '/audit-trail': ['Audit Trail', 'Monitor system activities and user actions'],
-  '/feedback': ['User Feedback', 'Read Consumer feedback submitted to the local Firebase emulators'],
+  '/feedback': ['User Feedback', FEEDBACK_MODE === 'online_test' ? 'Read controlled team test feedback' : 'Read Consumer feedback submitted to the local Firebase emulators'],
   '/admins': ['Manage Admins', 'Manage BFAR and market administrator accounts'],
   '/profile': ['Profile Management', 'View and update your profile information and account settings'],
   '/notifications': ['Notifications', 'Stay updated on reports, reviews, assessments, and vendor actions.'],
@@ -64,6 +65,9 @@ export default function AdminLayout() {
   if (!user) {
     return <Navigate to="/" replace />
   }
+
+  if (FEEDBACK_MODE === 'online_test' && (user.role !== 'bfar_admin' || user.accountStatus !== 'active' || user.feedbackOnlineTest !== 'consumer-feedback-v1')) return <Navigate to="/" replace />
+  if (FEEDBACK_MODE === 'online_test' && location.pathname !== '/feedback') return <Navigate to="/feedback" replace />
 
   // Logged in, but this role isn't allowed on this route — send to Dashboard
   // rather than showing a broken/empty page.

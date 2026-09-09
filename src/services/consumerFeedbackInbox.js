@@ -1,3 +1,4 @@
+import { FEEDBACK_MODE } from './feedbackEnvironment.js'
 import { httpsCallable } from 'firebase/functions'
 import { auth, functions, isAuthorityEmulatorEnabled, isFirebaseEnabled } from './firebase.js'
 
@@ -12,7 +13,7 @@ export function evaluateConsumerFeedbackEnvironment({ dev, firebaseEnabled, auth
   return Boolean(dev && firebaseEnabled && authorityEmulatorEnabled && feedbackFlag === 'true' && projectId === EXPECTED_PROJECT_ID)
 }
 
-export const CONSUMER_FEEDBACK_RUNTIME_ENABLED = evaluateConsumerFeedbackEnvironment({
+export const CONSUMER_FEEDBACK_RUNTIME_ENABLED = (FEEDBACK_MODE === 'online_test' && isFirebaseEnabled) || evaluateConsumerFeedbackEnvironment({
   dev: runtimeEnv.DEV,
   firebaseEnabled: isFirebaseEnabled,
   authorityEmulatorEnabled: isAuthorityEmulatorEnabled,
@@ -21,7 +22,7 @@ export const CONSUMER_FEEDBACK_RUNTIME_ENABLED = evaluateConsumerFeedbackEnviron
 })
 
 export function canViewConsumerFeedback(runtimeEnabled, user) {
-  return Boolean(runtimeEnabled && user?.role === 'bfar_admin' && user?.accountStatus === 'active')
+  return Boolean(runtimeEnabled && user?.role === 'bfar_admin' && user?.accountStatus === 'active' && (FEEDBACK_MODE !== 'online_test' || user.feedbackOnlineTest === 'consumer-feedback-v1'))
 }
 
 function hasExactKeys(value, expected) {
@@ -38,9 +39,9 @@ function isCanonicalTimestamp(value) {
     && new Date(value).toISOString() === value
 }
 
-export function validateFeedbackProjection(value) {
+export function validateFeedbackProjection(value, mode = FEEDBACK_MODE) {
   if (!hasExactKeys(value, RESPONSE_FIELDS)) return null
-  const valid = value.schemaVersion === '1.0'
+  const valid = value.schemaVersion === (mode === 'online_test' ? '1.1' : '1.0')
     && /^FB-[A-F0-9]{16}$/.test(value.feedbackReference)
     && Number.isInteger(value.rating) && value.rating >= 1 && value.rating <= 5
     && typeof value.feedbackText === 'string' && value.feedbackText.trim() === value.feedbackText
@@ -61,6 +62,12 @@ export class ConsumerFeedbackInboxError extends Error {
 }
 
 export function consumerFeedbackErrorMessage(category) {
+  if (FEEDBACK_MODE === 'online_test') {
+    if (category === 'account_not_authorized') return 'An active BFAR online-test authorization is required.'
+    if (category === 'authentication_required') return 'Sign in again and retry.'
+    if (category === 'invalid_response') return 'Invalid feedback response. No records were displayed.'
+    return 'Online test feedback is unavailable. Please retry.'
+  }
   if (category === 'disabled') return 'Live Consumer feedback is disabled. Enable the local emulator feature flag to use this inbox.'
   if (category === 'authentication_required') return 'Sign in to the Firebase Auth emulator and retry.'
   if (category === 'account_not_authorized') return 'Only an active BFAR administrator can view Consumer feedback.'
@@ -75,7 +82,7 @@ function mapCallableError(error) {
   return 'service_unavailable'
 }
 
-export function createConsumerFeedbackInboxClient({ authInstance, invoke, runtimeEnabled = CONSUMER_FEEDBACK_RUNTIME_ENABLED } = {}) {
+export function createConsumerFeedbackInboxClient({ authInstance, invoke, runtimeEnabled = CONSUMER_FEEDBACK_RUNTIME_ENABLED, mode = FEEDBACK_MODE } = {}) {
   let activeRequest = null
   function list() {
     if (activeRequest) return activeRequest
@@ -85,15 +92,17 @@ export function createConsumerFeedbackInboxClient({ authInstance, invoke, runtim
       if (!firebaseUser) throw new ConsumerFeedbackInboxError('authentication_required')
       let token
       try { token = await firebaseUser.getIdTokenResult(true) } catch { throw new ConsumerFeedbackInboxError('authentication_required') }
-      if (token?.claims?.role !== 'bfar_admin' || token?.claims?.accountStatus !== 'active') {
+      if (token?.claims?.role !== 'bfar_admin' || token?.claims?.accountStatus !== 'active' || (mode === 'online_test' && token.claims.feedbackOnlineTest !== 'consumer-feedback-v1')) {
         throw new ConsumerFeedbackInboxError('account_not_authorized')
       }
+      if (authInstance.currentUser !== firebaseUser) throw new ConsumerFeedbackInboxError('authentication_required')
       let result
       try { result = await invoke({ pageSize: 50 }) } catch (error) { throw new ConsumerFeedbackInboxError(mapCallableError(error)) }
+      if (authInstance.currentUser !== firebaseUser) throw new ConsumerFeedbackInboxError('authentication_required')
       if (!hasExactKeys(result, ['feedback']) || !Array.isArray(result.feedback) || result.feedback.length > 50) {
         throw new ConsumerFeedbackInboxError('invalid_response')
       }
-      const feedback = result.feedback.map(validateFeedbackProjection)
+      const feedback = result.feedback.map(value => validateFeedbackProjection(value, mode))
       if (feedback.some((item) => item === null)) throw new ConsumerFeedbackInboxError('invalid_response')
       return feedback
     })().finally(() => { activeRequest = null })

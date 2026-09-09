@@ -1,3 +1,4 @@
+import { FEEDBACK_MODE } from './feedbackEnvironment.js'
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import { doc, getDoc } from 'firebase/firestore'
 import { auth, db, isAuthorityEmulatorEnabled, isFirebaseEnabled } from './firebase.js'
@@ -54,6 +55,11 @@ export async function signInAdmin(email, password) {
 }
 
 export async function getAdminProfile(firebaseUser) {
+  if (FEEDBACK_MODE === 'online_test') {
+    const { claims } = await firebaseUser.getIdTokenResult(true)
+    if (claims.role !== 'bfar_admin' || claims.accountStatus !== 'active' || claims.feedbackOnlineTest !== 'consumer-feedback-v1') throw new Error('This account is not authorized for the admin portal.')
+    return { uid: firebaseUser.uid, name: 'BFAR test administrator', role: claims.role, accountStatus: claims.accountStatus, feedbackOnlineTest: claims.feedbackOnlineTest }
+  }
   const token = isAuthorityEmulatorEnabled ? await firebaseUser.getIdTokenResult(true) : null
   const profileSnapshot = await getDoc(doc(db, 'users', firebaseUser.uid))
   if (!profileSnapshot.exists()) throw new Error('This account has no FRISH user profile.')
@@ -77,7 +83,7 @@ export function observeAdminSession(callback) {
     try {
       callback(await getAdminProfile(firebaseUser))
     } catch (error) {
-      console.error('Unable to load the FRISH admin profile.', error)
+      console.error('Unable to verify the FRISH admin session.')
       void signOut(auth).catch(() => {})
       callback(null)
     }
