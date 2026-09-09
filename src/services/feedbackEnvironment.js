@@ -6,3 +6,7 @@ export function resolveFeedbackMode(env) {
   return 'blocked'
 }
 export const FEEDBACK_MODE = resolveFeedbackMode(import.meta.env || {})
+
+export function canSubscribeLegacyAdminData(feedbackMode, firebaseEnabled) {
+  return Boolean(firebaseEnabled && feedbackMode === 'emulator')
+}

@@ -201,7 +201,7 @@ users/{INSPECTOR_AUTH_UID}
 ```text
 users/{BFAR_AUTH_UID}
   name: "BFAR-NCR Admin"
-  email: "admin@frish.gov.ph"
+  email: "bfar.admin@example.test"
   role: "bfar_admin"
   accountStatus: "active"
 ```
