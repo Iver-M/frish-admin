@@ -362,4 +362,4 @@ Then restart the development server.
 - See [`FIREBASE_SETUP.md`](./FIREBASE_SETUP.md) for additional Firebase configuration guidance.
 
 
-Online Consumer Feedback is restricted to controlled team test data and an active-BFAR read-only inbox. Other shared modules remain emulator-only and production remains disabled. See [Checkpoint 1](docs/planning/online-feedback-checkpoint-1.md).
+Online Consumer Feedback is restricted to controlled team test data and an active-BFAR read-only inbox. Other shared modules remain emulator-only and production remains disabled. See [Checkpoint 1](docs/planning/online-feedback-checkpoint-1.md) and the [Checkpoint 2B Hosting package](docs/planning/online-feedback-checkpoint-2b.md).
