@@ -66,9 +66,6 @@ export default function AdminLayout() {
     return <Navigate to="/" replace />
   }
 
-  if (FEEDBACK_MODE === 'online_test' && (user.role !== 'bfar_admin' || user.accountStatus !== 'active' || user.feedbackOnlineTest !== 'consumer-feedback-v1')) return <Navigate to="/" replace />
-  if (FEEDBACK_MODE === 'online_test' && location.pathname !== '/feedback') return <Navigate to="/feedback" replace />
-
   // Logged in, but this role isn't allowed on this route — send to Dashboard
   // rather than showing a broken/empty page.
   const routeRoot = location.pathname.startsWith('/consumer-intake/')

@@ -23,7 +23,7 @@ export const isAuthorityEmulatorEnabled = Boolean(runtimeEnv.DEV
 
 const app = isFirebaseEnabled ? (getApps()[0] || initializeApp(firebaseConfig)) : null
 export const auth = app ? getAuth(app) : null
-export const db = app && FEEDBACK_MODE === 'emulator' ? getFirestore(app) : null
+export const db = app ? getFirestore(app) : null
 export const storage = app && FEEDBACK_MODE === 'emulator' ? getStorage(app) : null
 export const functions = app ? getFunctions(app, 'asia-southeast1') : null
 

@@ -55,11 +55,7 @@ export async function signInAdmin(email, password) {
 }
 
 export async function getAdminProfile(firebaseUser) {
-  if (FEEDBACK_MODE === 'online_test') {
-    const { claims } = await firebaseUser.getIdTokenResult(true)
-    if (claims.role !== 'bfar_admin' || claims.accountStatus !== 'active' || claims.feedbackOnlineTest !== 'consumer-feedback-v1') throw new Error('This account is not authorized for the admin portal.')
-    return { uid: firebaseUser.uid, name: 'BFAR test administrator', role: claims.role, accountStatus: claims.accountStatus, feedbackOnlineTest: claims.feedbackOnlineTest }
-  }
+  const onlineToken = FEEDBACK_MODE === 'online_test' ? await firebaseUser.getIdTokenResult(true) : null
   const token = isAuthorityEmulatorEnabled ? await firebaseUser.getIdTokenResult(true) : null
   const profileSnapshot = await getDoc(doc(db, 'users', firebaseUser.uid))
   if (!profileSnapshot.exists()) throw new Error('This account has no FRISH user profile.')
@@ -69,7 +65,7 @@ export async function getAdminProfile(firebaseUser) {
   if (!['bfar_admin', 'market_admin'].includes(role)) throw new Error('This account is not authorized for the admin portal.')
   if (accountStatus === 'suspended') throw new Error('This account has been suspended. Contact BFAR-NCR.')
   if (['inactive', 'disabled'].includes(accountStatus)) throw new Error('This admin account is inactive. Contact BFAR-NCR.')
-  return { uid: firebaseUser.uid, name: profile.name || firebaseUser.displayName || firebaseUser.email, email: firebaseUser.email, role, accountStatus, marketId: token?.claims.marketId || profile.marketId || null, marketName: profile.marketName || null }
+  return { uid: firebaseUser.uid, name: profile.name || firebaseUser.displayName || firebaseUser.email, email: firebaseUser.email, role, accountStatus, marketId: token?.claims.marketId || profile.marketId || null, marketName: profile.marketName || null, feedbackOnlineTest: onlineToken?.claims.feedbackOnlineTest || null }
 }
 
 export function observeAdminSession(callback) {

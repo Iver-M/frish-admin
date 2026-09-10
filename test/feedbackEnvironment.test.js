@@ -8,8 +8,8 @@ test('online environment rejects missing, contradictory, debug, production and w
   for (const change of [{ DEV: true }, { VITE_FEEDBACK_ENVIRONMENT: 'production' }, { VITE_FIREBASE_PROJECT_ID: 'wrong' }, { VITE_AUTHORITY_CASES_EMULATOR: 'true' }, { VITE_ONLINE_TEST_APPROVED: 'false' }]) assert.equal(resolveFeedbackMode({ ...env, ...change }), 'blocked')
 })
 
-test('online feedback mode never starts legacy Firestore subscriptions', () => {
-  assert.equal(canSubscribeLegacyAdminData('online_test', true), false)
+test('online feedback mode preserves existing Firestore-backed Admin modules', () => {
+  assert.equal(canSubscribeLegacyAdminData('online_test', true), true)
   assert.equal(canSubscribeLegacyAdminData('blocked', true), false)
   assert.equal(canSubscribeLegacyAdminData('emulator', false), false)
   assert.equal(canSubscribeLegacyAdminData('emulator', true), true)

@@ -1,4 +1,3 @@
-import { FEEDBACK_MODE } from '../services/feedbackEnvironment.js'
 import { NavLink } from 'react-router-dom'
 import {
   FiGrid,
@@ -39,7 +38,7 @@ const NAV_ITEMS = [
 ]
 
 export default function Sidebar({ collapsed, mobileOpen, onMobileClose, onLogout, role, user }) {
-  const visibleItems = NAV_ITEMS.filter((item) => item.roles.includes(role) && (FEEDBACK_MODE !== 'online_test' || item.to === '/feedback') && (role !== 'bfar_admin' || item.to !== '/vendors') && (role !== 'market_admin' || ['/dashboard', '/reports', '/vendors', '/profile'].includes(item.to))).map((item) =>
+  const visibleItems = NAV_ITEMS.filter((item) => item.roles.includes(role) && (role !== 'bfar_admin' || item.to !== '/vendors') && (role !== 'market_admin' || ['/dashboard', '/reports', '/vendors', '/profile'].includes(item.to))).map((item) =>
     role === 'market_admin' && item.to === '/reports' ? { ...item, label: 'Escalated Reports' } : item,
   )
 
