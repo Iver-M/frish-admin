@@ -201,7 +201,7 @@ users/{INSPECTOR_AUTH_UID}
 ```text
 users/{BFAR_AUTH_UID}
   name: "BFAR-NCR Admin"
-  email: "admin@frish.gov.ph"
+  email: "bfar.admin@example.test"
   role: "bfar_admin"
   accountStatus: "active"
 ```
@@ -360,3 +360,13 @@ Then restart the development server.
 - Firebase-enabled modules use real-time Firestore listeners.
 - Demonstration records remain available when `VITE_USE_FIREBASE=false`.
 - See [`FIREBASE_SETUP.md`](./FIREBASE_SETUP.md) for additional Firebase configuration guidance.
+
+
+Online Consumer Feedback is restricted to controlled team test data and an active-BFAR read-only inbox. Other shared modules remain emulator-only and production remains disabled. See [Checkpoint 1](docs/planning/online-feedback-checkpoint-1.md) and the [Checkpoint 2B Hosting package](docs/planning/online-feedback-checkpoint-2b.md).
+
+Final Android/browser acceptance verified the exact schema 1.1 path, one Admin
+projection across refresh, exact cleanup back to an empty inbox, and preservation
+of the original Admin navigation. The deployed Hosting, callable, Rules, index,
+and deny-all Storage state remains controlled-test only. App Check, anonymous
+test-account cleanup, function container-artifact cleanup, and official
+dataset/model approval remain open. See the [final online feedback review](docs/planning/online-feedback-final-review.md).

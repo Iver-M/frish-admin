@@ -1,3 +1,4 @@
+import { FEEDBACK_MODE } from './feedbackEnvironment.js'
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import { doc, getDoc } from 'firebase/firestore'
 import { auth, db, isAuthorityEmulatorEnabled, isFirebaseEnabled } from './firebase.js'
@@ -54,6 +55,7 @@ export async function signInAdmin(email, password) {
 }
 
 export async function getAdminProfile(firebaseUser) {
+  const onlineToken = FEEDBACK_MODE === 'online_test' ? await firebaseUser.getIdTokenResult(true) : null
   const token = isAuthorityEmulatorEnabled ? await firebaseUser.getIdTokenResult(true) : null
   const profileSnapshot = await getDoc(doc(db, 'users', firebaseUser.uid))
   if (!profileSnapshot.exists()) throw new Error('This account has no FRISH user profile.')
@@ -63,7 +65,7 @@ export async function getAdminProfile(firebaseUser) {
   if (!['bfar_admin', 'market_admin'].includes(role)) throw new Error('This account is not authorized for the admin portal.')
   if (accountStatus === 'suspended') throw new Error('This account has been suspended. Contact BFAR-NCR.')
   if (['inactive', 'disabled'].includes(accountStatus)) throw new Error('This admin account is inactive. Contact BFAR-NCR.')
-  return { uid: firebaseUser.uid, name: profile.name || firebaseUser.displayName || firebaseUser.email, email: firebaseUser.email, role, accountStatus, marketId: token?.claims.marketId || profile.marketId || null, marketName: profile.marketName || null }
+  return { uid: firebaseUser.uid, name: profile.name || firebaseUser.displayName || firebaseUser.email, email: firebaseUser.email, role, accountStatus, marketId: token?.claims.marketId || profile.marketId || null, marketName: profile.marketName || null, feedbackOnlineTest: onlineToken?.claims.feedbackOnlineTest || null }
 }
 
 export function observeAdminSession(callback) {
@@ -77,7 +79,7 @@ export function observeAdminSession(callback) {
     try {
       callback(await getAdminProfile(firebaseUser))
     } catch (error) {
-      console.error('Unable to load the FRISH admin profile.', error)
+      console.error('Unable to verify the FRISH admin session.')
       void signOut(auth).catch(() => {})
       callback(null)
     }

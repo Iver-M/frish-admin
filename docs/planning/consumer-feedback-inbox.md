@@ -67,3 +67,8 @@ identity replacement, four unique exact-schema documents, and zero unrelated
 Firestore or Storage writes. The audit reports 2 moderate React Router findings;
 the offered remediation is a breaking major upgrade and was not force-applied.
 Production Firebase remained untouched and `PRODUCTION_FIREBASE_APPROVED=false`.
+
+
+## Online feedback checkpoint
+
+Consumer Feedback alone now has an explicit online_test code path for controlled test data in the normal consumerFeedback collection, with exact environment/data-version/run markers. The active-BFAR inbox is read-only. All other shared features remain emulator-only; production remains disabled. Map work is preserved and paused. Cleanup is targeted and dry-run-first. See [Checkpoint 1](online-feedback-checkpoint-1.md) for gates, contracts and the future deployment inventory.

@@ -98,3 +98,13 @@ test('feedback page is read-only, handles every load state, and never renders pr
   assert.match(layoutSource, /'\/feedback': \['bfar_admin'\]/)
   assert.match(sidebarSource, /to: '\/feedback'.*roles: \['bfar_admin'\]/)
 })
+
+test('online mode requires versioned claims and accepts only the online projection', async () => {
+  const denied = createConsumerFeedbackInboxClient({ authInstance: activeAuth(), runtimeEnabled: true, mode: 'online_test', invoke() { throw new Error('must not call') } })
+  await assert.rejects(denied.list(), { category: 'account_not_authorized' })
+  const allowed = createConsumerFeedbackInboxClient({ authInstance: activeAuth({ feedbackOnlineTest: 'consumer-feedback-v1' }), runtimeEnabled: true, mode: 'online_test', invoke: async () => ({ feedback: [projection({ schemaVersion: '1.1' })] }) })
+  assert.equal((await allowed.list())[0].schemaVersion, '1.1')
+  assert.equal(validateFeedbackProjection(projection(), 'online_test'), null)
+  assert.match(pageSource, /Online test environment/)
+  assert.match(pageSource, /does not mean BFAR review or reply/)
+})

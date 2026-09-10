@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FiAlertTriangle, FiBell, FiCheckCircle, FiMenu, FiSearch, FiUsers } from 'react-icons/fi'
 import { isFirebaseEnabled } from '../services/firebase.js'
+import { FEEDBACK_MODE, canSubscribeLegacyAdminData } from '../services/feedbackEnvironment.js'
 import { subscribeMarketRecords } from '../services/firestoreService.js'
 import { getReportCode } from '../utils/reportCode.js'
 import { markNotificationRead, subscribeNotificationReadState } from '../utils/notificationReadState.js'
@@ -25,11 +26,13 @@ export default function Topbar({ onMenuClick, user }) {
   const [readNotificationIds, setReadNotificationIds] = useState(new Set())
   const navigate = useNavigate()
   const initials = getInitials(user?.name) || 'AD'
-  const email = user?.email || (user?.role === 'bfar_admin' ? 'admin@frish.gov.ph' : 'market.admin@frish.gov.ph')
+  const email = user?.email || (FEEDBACK_MODE === 'online_test'
+    ? 'BFAR online-test account'
+    : user?.role === 'bfar_admin' ? 'BFAR administrator' : 'Market administrator')
   const profileName = user?.name || (user?.role === 'bfar_admin' ? 'BFAR-NCR Admin' : 'Pasig Public Market Admin')
   const goTo = (path) => { setOpenPanel(null); navigate(path) }
   useEffect(() => {
-    if (!isFirebaseEnabled) return undefined
+    if (!canSubscribeLegacyAdminData(FEEDBACK_MODE, isFirebaseEnabled)) return undefined
     return subscribeMarketRecords('reports', user, setReports, () => setReports([]))
   }, [user])
 
@@ -39,7 +42,7 @@ export default function Topbar({ onMenuClick, user }) {
   )
 
   useEffect(() => {
-    if (!isFirebaseEnabled || user?.role !== 'bfar_admin') {
+    if (!canSubscribeLegacyAdminData(FEEDBACK_MODE, isFirebaseEnabled) || user?.role !== 'bfar_admin') {
       setScans([])
       return undefined
     }
@@ -98,7 +101,9 @@ export default function Topbar({ onMenuClick, user }) {
   }, [reports, scans, user?.role])
   const unreadNotifications = liveNotifications.filter((item) => !readNotificationIds.has(item.id))
   const panelNotifications = liveNotifications.slice(0, 4)
-  const notificationCount = isFirebaseEnabled ? unreadNotifications.length : NOTIFICATIONS.length
+  const notificationCount = FEEDBACK_MODE === 'online_test'
+    ? 0
+    : isFirebaseEnabled ? unreadNotifications.length : NOTIFICATIONS.length
 
   function openNotification(item) {
     markNotificationRead(user, item.id)

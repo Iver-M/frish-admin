@@ -1,3 +1,4 @@
+import { FEEDBACK_MODE } from '../../../services/feedbackEnvironment.js'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FiAlertCircle, FiClock, FiRefreshCw, FiStar } from 'react-icons/fi'
 import { useAuth } from '../../../context/AuthContext.jsx'
@@ -82,13 +83,14 @@ export default function Feedback() {
     <div className="page-header-row">
       <div>
         <h2>User Feedback</h2>
-        <p className="page-header-row__subtitle">Read Consumer comments submitted to the local Firebase emulators</p>
+        <p className="page-header-row__subtitle">{FEEDBACK_MODE === 'online_test' ? 'Read controlled team test feedback' : 'Read Consumer comments submitted to the local Firebase emulators'}</p>
       </div>
       {canLoad && <button className="btn btn-outline btn-sm" onClick={load} disabled={state.status === 'loading'}>
         <FiRefreshCw aria-hidden="true" /> {state.status === 'failure' ? 'Retry' : 'Refresh'}
       </button>}
     </div>
 
+    {FEEDBACK_MODE === 'online_test' && <section className="feedback-notice" role="status"><div><strong>Online test environment</strong><p>Feedback is test data. Submission does not mean BFAR review or reply. Read-only. Production remains disabled.</p></div></section>}
     {!live && <section className="feedback-notice feedback-notice--sample" role="status">
       <FiAlertCircle aria-hidden="true" />
       <div><strong>Sample data</strong><p>The live Consumer feedback inbox is disabled. These placeholder cards are for interface demonstration only.</p></div>
@@ -96,7 +98,7 @@ export default function Feedback() {
 
     {live && !canLoad && <section className="feedback-notice feedback-notice--error" role="alert">
       <FiAlertCircle aria-hidden="true" />
-      <div><strong>Feedback unavailable</strong><p>Only an active BFAR administrator signed in through the local Firebase Auth emulator can view Consumer feedback.</p></div>
+      <div><strong>Feedback unavailable</strong><p>{FEEDBACK_MODE === 'online_test' ? 'Only an active BFAR administrator with online-test authorization can view feedback.' : 'Only an active BFAR administrator signed in through the local Firebase Auth emulator can view Consumer feedback.'}</p></div>
     </section>}
 
     {!live && <section className="feedback-board">
@@ -105,10 +107,10 @@ export default function Feedback() {
     </section>}
 
     {canLoad && <section className="feedback-board" aria-busy={state.status === 'loading'}>
-      <div className="feedback-board__heading"><div><h3>Consumer feedback inbox</h3><p>Read-only · Firebase emulators · newest submissions first</p></div><span>{state.items.length} records</span></div>
+      <div className="feedback-board__heading"><div><h3>Consumer feedback inbox</h3><p>{FEEDBACK_MODE === 'online_test' ? 'Read-only · Online test · newest submissions first' : 'Read-only · Firebase emulators · newest submissions first'}</p></div><span>{state.items.length} records</span></div>
       {state.status === 'loading' && <div className="feedback-board__state" role="status">Loading Consumer feedback…</div>}
       {state.status === 'failure' && <div className="feedback-board__state feedback-board__state--error" role="alert"><p>{state.message}</p><button className="btn btn-outline btn-sm" onClick={load}>Retry</button></div>}
-      {state.status === 'success' && state.items.length === 0 && <div className="feedback-board__state">No Consumer feedback has been submitted to this emulator.</div>}
+      {state.status === 'success' && state.items.length === 0 && <div className="feedback-board__state">{FEEDBACK_MODE === 'online_test' ? 'No test feedback has been submitted.' : 'No Consumer feedback has been submitted to this emulator.'}</div>}
       {state.status === 'success' && state.items.length > 0 && <FeedbackCards items={state.items} live />}
     </section>}
   </div>

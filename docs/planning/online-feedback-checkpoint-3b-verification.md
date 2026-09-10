@@ -1,0 +1,13 @@
+# Online Consumer Feedback — Checkpoint 3B verification
+
+Checkpoint 3B deployed only `listConsumerFeedback` to `asia-southeast1` and the Admin online-test build to Hosting site `frish`. The final Hosting version is `4c4b4736b7a1d9c1`; the pre-checkpoint rollback version is `16b23254b72305f2`.
+
+The live Function inventory contains exactly `listConsumerFeedback`. It is an active Node.js 22 second-generation callable with 256 MiB memory, a 15-second timeout, `maxInstances` 1, and App Check enforcement disabled. Its environment is `online_test`, online-test approval is true, production approval is false, and no emulator hosts are configured. An unauthenticated call was denied with no sensitive response fields. Focused backend tests passed all 59 cases, including role/status/version denial, exact safe projection, bounded read-only querying, and production fail-closed behavior.
+
+Exactly one enabled team account received the approved BFAR role, active account status, and versioned feedback online-test authorization claims. No account identifier, UID, token, password, recovery information, or private profile data is recorded here. The account initially had no Custom Claims, and its encrypted rollback restores that exact empty state. The originally supplied account was corrected before acceptance and restored to its exact prior empty-claims state.
+
+The Admin suite passed all 38 tests and the online-test Vite build transformed 141 modules. Browser acceptance confirmed that the authenticated build exposes only User Feedback navigation, clearly identifies the online-test environment, reports zero records with the expected empty state, and returns to the same state after refresh. The current bundle produced no console errors. Online mode initializes neither Firestore nor Storage; feedback retrieval uses only the callable, and legacy Firestore subscriptions are explicitly disabled. Deterministic tests continue to deny Market Admin, LGU, Inspector, inactive, arbitrary, and missing versioned authorization.
+
+Firestore Rules remain on ruleset `4df777d0-3c46-4fc6-9476-c8ec81ded4ab` with normalized SHA-256 `d110ed211cf3ae609f0bcf67434841f7e8446a93eebb27dd1e3d06aea916fd5c`. The `consumerFeedback`, `reports`, and `scans` indexes remain READY with no field overrides. Storage remains on deny-all ruleset `d7ec114b-73de-4208-9766-270e61c80084`. Production remains disabled and `PRODUCTION_FIREBASE_APPROVED=false`.
+
+Checkpoint 3C still requires the separately authorized physical Consumer test: install the controlled online-test APK, submit one allowlisted test feedback record, verify its owner receipt and Admin safe projection, and remove the exact temporary record. No Consumer feedback document was created in Checkpoint 3B.

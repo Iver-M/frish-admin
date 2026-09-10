@@ -1,0 +1,14 @@
+{
+  "projects": {
+    "default": "frish-app2026"
+  },
+  "targets": {
+    "frish-app2026": {
+      "hosting": {
+        "frish": [
+          "frish"
+        ]
+      }
+    }
+  }
+}
