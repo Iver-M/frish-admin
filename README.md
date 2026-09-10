@@ -363,3 +363,10 @@ Then restart the development server.
 
 
 Online Consumer Feedback is restricted to controlled team test data and an active-BFAR read-only inbox. Other shared modules remain emulator-only and production remains disabled. See [Checkpoint 1](docs/planning/online-feedback-checkpoint-1.md) and the [Checkpoint 2B Hosting package](docs/planning/online-feedback-checkpoint-2b.md).
+
+Final Android/browser acceptance verified the exact schema 1.1 path, one Admin
+projection across refresh, exact cleanup back to an empty inbox, and preservation
+of the original Admin navigation. The deployed Hosting, callable, Rules, index,
+and deny-all Storage state remains controlled-test only. App Check, anonymous
+test-account cleanup, function container-artifact cleanup, and official
+dataset/model approval remain open. See the [final online feedback review](docs/planning/online-feedback-final-review.md).
