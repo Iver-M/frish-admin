@@ -1,25 +1,20 @@
 import { FEEDBACK_MODE } from './feedbackEnvironment.js'
 import { httpsCallable } from 'firebase/functions'
-import { auth, functions, isAuthorityEmulatorEnabled, isFirebaseEnabled } from './firebase.js'
+import { auth, functions } from './firebase.js'
 
 const EXPECTED_PROJECT_ID = 'frish-app2026'
 const RESPONSE_FIELDS = Object.freeze([
   'schemaVersion', 'feedbackReference', 'rating', 'feedbackText', 'appVersion',
   'platform', 'platformVersion', 'submittedAt',
 ])
-const runtimeEnv = import.meta.env || {}
-
 export function evaluateConsumerFeedbackEnvironment({ dev, firebaseEnabled, authorityEmulatorEnabled, feedbackFlag, projectId }) {
   return Boolean(dev && firebaseEnabled && authorityEmulatorEnabled && feedbackFlag === 'true' && projectId === EXPECTED_PROJECT_ID)
 }
 
-export const CONSUMER_FEEDBACK_RUNTIME_ENABLED = (FEEDBACK_MODE === 'online_test' && isFirebaseEnabled) || evaluateConsumerFeedbackEnvironment({
-  dev: runtimeEnv.DEV,
-  firebaseEnabled: isFirebaseEnabled,
-  authorityEmulatorEnabled: isAuthorityEmulatorEnabled,
-  feedbackFlag: runtimeEnv.VITE_CONSUMER_FEEDBACK_EMULATOR,
-  projectId: runtimeEnv.VITE_FIREBASE_PROJECT_ID,
-})
+// Keep Consumer data isolated while the Admin portal returns to the existing
+// cloud-backed Inspector workflow. The pure environment evaluator remains
+// exported for contract tests and a future, separately approved integration.
+export const CONSUMER_FEEDBACK_RUNTIME_ENABLED = false
 
 export function canViewConsumerFeedback(runtimeEnabled, user) {
   return Boolean(runtimeEnabled && user?.role === 'bfar_admin' && user?.accountStatus === 'active' && (FEEDBACK_MODE !== 'online_test' || user.feedbackOnlineTest === 'consumer-feedback-v1'))

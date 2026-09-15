@@ -1,9 +1,8 @@
-import { FEEDBACK_MODE } from './feedbackEnvironment.js'
 import { getApps, initializeApp } from 'firebase/app'
-import { connectAuthEmulator, getAuth } from 'firebase/auth'
-import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore'
-import { connectFunctionsEmulator, getFunctions } from 'firebase/functions'
-import { connectStorageEmulator, getStorage } from 'firebase/storage'
+import { getAuth } from 'firebase/auth'
+import { getFirestore } from 'firebase/firestore'
+import { getFunctions } from 'firebase/functions'
+import { getStorage } from 'firebase/storage'
 
 const runtimeEnv = import.meta.env || {}
 const firebaseConfig = {
@@ -15,22 +14,17 @@ const firebaseConfig = {
   appId: runtimeEnv.VITE_FIREBASE_APP_ID,
 }
 
-export const isFirebaseEnabled = FEEDBACK_MODE !== 'blocked' && runtimeEnv.VITE_USE_FIREBASE === 'true' && Boolean(firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.appId)
-export const isAuthorityEmulatorEnabled = Boolean(runtimeEnv.DEV
-  && runtimeEnv.VITE_AUTHORITY_CASES_EMULATOR === 'true'
+export const isFirebaseEnabled = runtimeEnv.VITE_USE_FIREBASE === 'true'
   && firebaseConfig.projectId === 'frish-app2026'
-  && isFirebaseEnabled)
+  && Boolean(firebaseConfig.apiKey && firebaseConfig.appId)
+
+// Consumer intake, authority cases, and evidence remain isolated until their
+// cloud contract is explicitly enabled. The primary Admin client must continue
+// to use cloud Firebase for the existing Inspector/Admin workflow.
+export const isAuthorityEmulatorEnabled = false
 
 const app = isFirebaseEnabled ? (getApps()[0] || initializeApp(firebaseConfig)) : null
 export const auth = app ? getAuth(app) : null
 export const db = app ? getFirestore(app) : null
-export const storage = app && FEEDBACK_MODE === 'emulator' ? getStorage(app) : null
+export const storage = app ? getStorage(app) : null
 export const functions = app ? getFunctions(app, 'asia-southeast1') : null
-
-if (isAuthorityEmulatorEnabled && !globalThis.__FRISH_AUTHORITY_EMULATORS_CONNECTED__) {
-  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true })
-  connectFirestoreEmulator(db, '127.0.0.1', 8080)
-  connectStorageEmulator(storage, '127.0.0.1', 9199)
-  connectFunctionsEmulator(functions, '127.0.0.1', 5001)
-  globalThis.__FRISH_AUTHORITY_EMULATORS_CONNECTED__ = true
-}

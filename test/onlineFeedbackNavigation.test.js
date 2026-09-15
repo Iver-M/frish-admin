@@ -43,9 +43,11 @@ test('feedback authorization stays route-specific and original sign-out and role
   assert.match(feedback, /feedbackOnlineTest !== 'consumer-feedback-v1'/)
 })
 
-test('online mode keeps Firebase and legacy Firestore pages without enabling Storage or authority modules', () => {
+test('Admin uses cloud Firebase for legacy pages without enabling Consumer authority modules', () => {
   assert.match(firebase, /export const db = app \? getFirestore\(app\) : null/)
-  assert.match(firebase, /export const storage = app && FEEDBACK_MODE === 'emulator' \? getStorage\(app\) : null/)
+  assert.match(firebase, /export const storage = app \? getStorage\(app\) : null/)
+  assert.match(firebase, /export const isAuthorityEmulatorEnabled = false/)
+  assert.doesNotMatch(firebase, /connect(?:Auth|Firestore|Functions|Storage)Emulator/)
   assert.match(environment, /PRODUCTION_FIREBASE_APPROVED = false/)
   assert.match(sidebar, /AUTHORITY_CASES_RUNTIME_ENABLED \? \[/)
 })

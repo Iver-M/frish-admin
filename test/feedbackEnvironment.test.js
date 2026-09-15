@@ -10,7 +10,7 @@ test('online environment rejects missing, contradictory, debug, production and w
 
 test('online feedback mode preserves existing Firestore-backed Admin modules', () => {
   assert.equal(canSubscribeLegacyAdminData('online_test', true), true)
-  assert.equal(canSubscribeLegacyAdminData('blocked', true), false)
+  assert.equal(canSubscribeLegacyAdminData('blocked', true), true)
   assert.equal(canSubscribeLegacyAdminData('emulator', false), false)
   assert.equal(canSubscribeLegacyAdminData('emulator', true), true)
 })
