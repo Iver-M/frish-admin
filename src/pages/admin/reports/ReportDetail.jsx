@@ -14,6 +14,7 @@ import {
   FiUser,
   FiUserPlus,
 } from 'react-icons/fi'
+import ActionReceiptModal from '../../../components/ActionReceiptModal.jsx'
 import ConfirmDialog from '../../../components/ConfirmDialog.jsx'
 import StatusBadge from '../../../components/StatusBadge.jsx'
 import { getReports } from '../../../data/reports.js'
@@ -25,6 +26,11 @@ import {
   updateReportWithAudit,
 } from '../../../services/firestoreService.js'
 import { getReportCode } from '../../../utils/reportCode.js'
+import {
+  assessMarketLocation,
+  locationPlotPosition,
+  PASIG_PUBLIC_MARKET_GEOFENCE,
+} from '../../../utils/locationIntegrity.js'
 import {
   isReportAssignable,
   normalizeReportRecord,
@@ -43,6 +49,7 @@ export default function ReportDetail() {
   const { reportId } = useParams()
   const { user, isBfarAdmin, isFirebaseEnabled } = useAuth()
   const [liveReport, setLiveReport] = useState(undefined)
+  const [creatorProfile, setCreatorProfile] = useState(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -55,10 +62,29 @@ export default function ReportDetail() {
     )
   }, [isFirebaseEnabled, reportId])
 
+  useEffect(() => {
+    const creatorUid = liveReport?.createdBy?.uid
+    if (!isFirebaseEnabled || !isBfarAdmin || !creatorUid) {
+      setCreatorProfile(null)
+      return undefined
+    }
+    return subscribeRecord('users', creatorUid, setCreatorProfile, () => setCreatorProfile(null))
+  }, [isBfarAdmin, isFirebaseEnabled, liveReport?.createdBy?.uid])
+
   const report = useMemo(() => {
     const record = isFirebaseEnabled ? liveReport : getReports().find((item) => item.id === reportId)
-    return record ? normalizeReportRecord(record) : record
-  }, [isFirebaseEnabled, liveReport, reportId])
+    if (!record) return record
+    const normalized = normalizeReportRecord(record)
+    if (!creatorProfile) return normalized
+    return {
+      ...normalized,
+      createdBy: {
+        ...(normalized.createdBy || {}),
+        name: creatorProfile.name || creatorProfile.displayName || creatorProfile.email || 'Inspector',
+        email: creatorProfile.email || normalized.createdBy?.email || '',
+      },
+    }
+  }, [creatorProfile, isFirebaseEnabled, liveReport, reportId])
 
   if (isFirebaseEnabled && liveReport === undefined) return <main className="report-detail page">Loading report…</main>
   if (!report) return <Navigate to="/reports" replace />
@@ -70,7 +96,7 @@ export default function ReportDetail() {
 
 function BfarReportReview({ report, user, error, isFirebaseEnabled }) {
   const assignable = isReportAssignable(report)
-  const workflowLocked = report.status === 'forwarded-lgu' || report.status === 'resolved'
+  const workflowLocked = ['forwarded-lgu', 'under-lgu-action', 'resolved'].includes(report.status)
   const missingCanonicalFields = report.compatibility?.canonicalFieldsMissing || []
   const needsCanonicalRepair = isFirebaseEnabled && missingCanonicalFields.length > 0
   const [inspectors, setInspectors] = useState([])
@@ -81,6 +107,9 @@ function BfarReportReview({ report, user, error, isFirebaseEnabled }) {
   const [conclusion, setConclusion] = useState(report.reporterUpdate?.conclusion || '')
   const [reporterMessage, setReporterMessage] = useState(report.reporterUpdate?.message || '')
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [workflowConfirmOpen, setWorkflowConfirmOpen] = useState(false)
+  const [workflowError, setWorkflowError] = useState('')
+  const [receipt, setReceipt] = useState(null)
   const [outcomeError, setOutcomeError] = useState('')
   const reporter = reporterOf(report)
 
@@ -106,24 +135,43 @@ function BfarReportReview({ report, user, error, isFirebaseEnabled }) {
 
   async function saveWorkflow() {
     const selectedInspector = inspectors.find((item) => item.id === assignedInspectorId)
-    if (assignable && !selectedInspector) return setMessage('Choose an active inspector before saving.')
+    if (assignable && !selectedInspector) {
+      setWorkflowError('Choose an active inspector before saving.')
+      return false
+    }
     const inspector = selectedInspector || { id: '', name: 'Field inspector submission' }
     const firstAssignment = assignable && !report.assignedInspectorId
     const nextStatus = firstAssignment ? 'assigned' : status
     const canonicalFields = canonicalReportFields(report)
+    const workflowUpdate = assignable
+      ? {
+        ...canonicalFields,
+        assignedInspectorId: inspector.id,
+        assignedInspectorName: displayName(inspector),
+        status: nextStatus,
+      }
+      : { ...canonicalFields, status: nextStatus }
+    if (nextStatus === 'forwarded-lgu') {
+      workflowUpdate.forwardedBy = {
+        uid: user.uid || 'bfar-admin',
+        name: user.name || 'BFAR-NCR Admin',
+        role: 'bfar_admin',
+      }
+    }
+    if (nextStatus === 'under-review') {
+      workflowUpdate.reviewedBy = {
+        uid: user.uid || 'bfar-admin',
+        name: user.name || 'BFAR-NCR Admin',
+        role: 'bfar_admin',
+      }
+    }
     setSaving(true)
     setMessage('')
+    setWorkflowError('')
     try {
       await updateReportWithAudit(
         report.id,
-        assignable
-          ? {
-            ...canonicalFields,
-            assignedInspectorId: inspector.id,
-            assignedInspectorName: displayName(inspector),
-            status: nextStatus,
-          }
-          : { ...canonicalFields, status: nextStatus },
+        workflowUpdate,
         {
           actorId: user.uid || 'bfar-admin',
           actorName: user.name || 'BFAR-NCR Admin',
@@ -132,6 +180,7 @@ function BfarReportReview({ report, user, error, isFirebaseEnabled }) {
             : firstAssignment ? 'Assigned inspector to report' : 'Updated inspection report',
           details: `${titleOf(report)} — ${displayName(inspector)} · ${nextStatus}`,
           category: 'Report Management',
+          marketId: 'pasig',
         },
       )
       setMessage(needsCanonicalRepair
@@ -139,11 +188,35 @@ function BfarReportReview({ report, user, error, isFirebaseEnabled }) {
         : firstAssignment
         ? 'Inspector assignment saved in Firestore. Mobile assignment sync can be enabled when the updated report module is added to the inspector app.'
         : 'Report workflow updated.')
+      setReceipt({
+        title: workflowReceiptTitle({ assignable, firstAssignment, nextStatus, needsCanonicalRepair }),
+        reference: getReportCode(report),
+        details: [
+          { label: 'Status', value: statusLabel(nextStatus) },
+          { label: 'Authority', value: 'BFAR-NCR' },
+          { label: 'Completed by', value: user.name || 'BFAR-NCR Admin' },
+          { label: 'Recorded', value: formatDate(new Date().toISOString()) },
+        ],
+        nextStep: workflowNextStep(nextStatus),
+      })
+      return true
     } catch (item) {
-      setMessage(reportWorkflowError(item))
+      setWorkflowError(reportWorkflowError(item))
+      return false
     } finally {
       setSaving(false)
     }
+  }
+
+  function requestWorkflowConfirmation() {
+    const selectedInspector = inspectors.find((item) => item.id === assignedInspectorId)
+    if (assignable && !selectedInspector) {
+      setMessage('Choose an active inspector before saving.')
+      return
+    }
+    setMessage('')
+    setWorkflowError('')
+    setWorkflowConfirmOpen(true)
   }
 
   async function sendConclusion() {
@@ -203,6 +276,16 @@ function BfarReportReview({ report, user, error, isFirebaseEnabled }) {
         },
       )
       setMessage(`Conclusion sent securely to ${reporter.name}.`)
+      setReceipt({
+        title: 'Conclusion delivered to the reporter',
+        reference: getReportCode(report),
+        details: [
+          { label: 'Recipient', value: `${reporter.name} · ${roleLabel(reporter.role)}` },
+          { label: 'Sent by', value: senderName },
+          { label: 'Recorded', value: formatDate(new Date().toISOString()) },
+        ],
+        nextStep: 'The reporter can view the conclusion in their private notification inbox.',
+      })
       return true
     } catch (item) {
       setOutcomeError(item.message || 'Unable to send the conclusion.')
@@ -231,7 +314,6 @@ function BfarReportReview({ report, user, error, isFirebaseEnabled }) {
         {report.assessment && <InspectionEvidence assessment={report.assessment} />}
 
         <InfoCard title={assignable ? 'Field validation assignment' : 'BFAR review workflow'} icon={FiShield}>
-          {needsCanonicalRepair && <p className="workflow-guidance">This report uses the Inspector app’s older format and is missing: {missingCanonicalFields.join(', ')}. Complete these fields so Firestore can route the case to the Pasig LGU.</p>}
           {!assignable && <p className="workflow-guidance">{workflowLocked ? (report.status === 'resolved' ? 'The LGU decision has been received. Review it below and communicate the approved conclusion to the original reporter.' : 'This case is awaiting a decision from the Pasig Public Market administrator.') : 'This report was submitted by an inspector and does not require reassignment. Review the evidence before forwarding a valid case to the LGU.'}</p>}
           <label className="detail-field" hidden={!assignable}>
             <span>Assigned inspector</span>
@@ -244,6 +326,8 @@ function BfarReportReview({ report, user, error, isFirebaseEnabled }) {
             <span>{assignable ? 'Assignment status' : 'BFAR disposition'}</span>
             <select value={status} onChange={(event) => setStatus(event.target.value)} disabled={workflowLocked || (assignable && !report.assignedInspectorId)}>
               <option value="submitted">Submitted</option>
+              {!assignable && <option value="under-review">Under BFAR Review</option>}
+              {!assignable && <option value="needs-revision">Needs Revision</option>}
               {assignable && <option value="assigned">Assigned</option>}
               {assignable && <option value="in progress">In Progress</option>}
               <option value="forwarded-lgu">Forwarded to LGU</option>
@@ -251,9 +335,9 @@ function BfarReportReview({ report, user, error, isFirebaseEnabled }) {
             </select>
           </label>
           <div className="review-action-row">
-            {workflowLocked && needsCanonicalRepair && <button className="btn btn-primary btn-sm" onClick={saveWorkflow} disabled={isSaving}><FiCheckCircle /> {isSaving ? 'Completing record…' : 'Complete record for LGU'}</button>}
-            <button className="btn btn-primary btn-sm" onClick={saveWorkflow} disabled={workflowLocked || isSaving || (assignable && !assignedInspectorId)}>
-              {assignable ? <FiUserPlus /> : <FiCheckCircle />} {workflowLocked ? (report.status === 'resolved' ? 'Resolved by LGU' : 'Awaiting LGU decision') : isSaving ? 'Saving…' : assignable ? report.assignedInspectorId ? 'Save workflow' : 'Assign inspector' : 'Save BFAR review'}
+            {workflowLocked && needsCanonicalRepair && <button className="btn btn-primary btn-sm" onClick={requestWorkflowConfirmation} disabled={isSaving}><FiCheckCircle /> {isSaving ? 'Completing record…' : 'Complete record for LGU'}</button>}
+            <button className="btn btn-primary btn-sm" onClick={requestWorkflowConfirmation} disabled={workflowLocked || isSaving || (assignable && !assignedInspectorId)}>
+              {assignable ? <FiUserPlus /> : <FiCheckCircle />} {workflowLocked ? (report.status === 'resolved' ? 'Resolved by LGU' : 'Awaiting LGU decision') : isSaving ? 'Saving…' : assignable ? report.assignedInspectorId ? 'Save workflow' : 'Assign inspector' : status === 'forwarded-lgu' ? 'Forward to LGU' : 'Save BFAR review'}
             </button>
           </div>
           {message && <p className="bfar-review-status">{message}</p>}
@@ -285,14 +369,36 @@ function BfarReportReview({ report, user, error, isFirebaseEnabled }) {
     </div>
 
     <ConfirmDialog
+      open={workflowConfirmOpen}
+      onClose={() => { setWorkflowConfirmOpen(false); setWorkflowError('') }}
+      onConfirm={saveWorkflow}
+      title={workflowConfirmationTitle({ assignable, report, status })}
+      message={workflowConfirmationMessage({ assignable, report, status })}
+      details={workflowConfirmationDetails({ assignable, report, status, assignedInspectorId, inspectors })}
+      confirmLabel={workflowConfirmationLabel({ assignable, report, status })}
+      pendingLabel="Saving…"
+      error={workflowError}
+    />
+
+    <ConfirmDialog
       open={confirmOpen}
       onClose={() => { setConfirmOpen(false); setOutcomeError('') }}
       onConfirm={sendConclusion}
       title="Send conclusion to reporter?"
       message={`This will publish the reviewed conclusion to ${reporter.name}. Internal LGU remarks will not be included.`}
+      details={[
+        { label: 'Report', value: getReportCode(report) },
+        { label: 'Recipient', value: `${reporter.name} · ${roleLabel(reporter.role)}` },
+        { label: 'Conclusion', value: conclusion || 'Not selected' },
+      ]}
       confirmLabel="Send conclusion"
       pendingLabel="Sending…"
       error={outcomeError}
+    />
+    <ActionReceiptModal
+      open={!!receipt}
+      onClose={() => setReceipt(null)}
+      {...receipt}
     />
   </main>
 }
@@ -334,7 +440,36 @@ function InspectionEvidence({ assessment }) {
       <strong>Detected parts</strong>
       <span>{detectedParts.length ? detectedParts.map((part) => part.class || part.name).filter(Boolean).join(', ') || `${detectedParts.length} detections` : 'No detected-part evidence recorded.'}</span>
     </div>
+    <LocationIntegrity location={location} />
   </InfoCard>
+}
+
+function LocationIntegrity({ location }) {
+  const result = assessMarketLocation(location)
+  const position = locationPlotPosition(result)
+  const distance = result.distanceMeters === null
+    ? 'No usable coordinates were submitted by the mobile app.'
+    : `${Math.round(result.distanceMeters)} m from the configured market center`
+
+  return <section className={`location-integrity location-integrity--${result.state}`}>
+    <div className="location-integrity__copy">
+      <p className="workspace-kicker">LOCATION INTEGRITY</p>
+      <h4>{result.label}</h4>
+      <p>{distance}</p>
+      <dl>
+        <Fact label="Assigned market" value={PASIG_PUBLIC_MARKET_GEOFENCE.name} />
+        <Fact label="Verification radius" value={`${PASIG_PUBLIC_MARKET_GEOFENCE.radiusMeters} m · provisional`} />
+        <Fact label="Submitted coordinates" value={result.state === 'missing' ? 'Not recorded' : `${result.latitude}, ${result.longitude}`} />
+      </dl>
+      <small>This is a decision-support check, not proof by itself. Confirm the approved market boundary and mobile GPS accuracy before enforcement.</small>
+    </div>
+    <div className="location-integrity__plot" role="img" aria-label={`Schematic location check: ${result.label}`}>
+      <span className="location-integrity__radius" />
+      <span className="location-integrity__market"><FiMapPin /><small>Market</small></span>
+      {position && <span className="location-integrity__scan" style={{ left: `${position.x}%`, top: `${position.y}%` }}><i /><small>Scan</small></span>}
+      {!position && <span className="location-integrity__missing">GPS unavailable</span>}
+    </div>
+  </section>
 }
 
 function ReporterOutcome({
@@ -401,17 +536,68 @@ function ReporterOutcome({
 
 function LguReportAction({ report, user, error }) {
   const caseResolved = report.status === 'resolved'
+  const caseAcknowledged = ['under-lgu-action', 'resolved'].includes(report.status)
   const [action, setAction] = useState(report.lguAction || '')
   const [remarks, setRemarks] = useState(report.lguRemarks || '')
   const [message, setMessage] = useState(error)
   const [isSaving, setSaving] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [acknowledgeOpen, setAcknowledgeOpen] = useState(false)
+  const [receipt, setReceipt] = useState(null)
   const [decisionError, setDecisionError] = useState('')
 
   useEffect(() => {
     setAction(report.lguAction || '')
     setRemarks(report.lguRemarks || '')
   }, [report.lguAction, report.lguRemarks])
+
+  async function acknowledgeCase() {
+    if (caseAcknowledged) return true
+    setSaving(true)
+    setMessage('')
+    setDecisionError('')
+    try {
+      await updateReportWithAudit(
+        report.id,
+        {
+          status: 'under-lgu-action',
+          lguAcknowledgedBy: {
+            uid: user.uid || 'lgu-admin',
+            name: user.name || 'Pasig Public Market Admin',
+            role: 'market_admin',
+          },
+          marketId: 'pasig',
+          assignedMarket: 'Pasig Public Market',
+        },
+        {
+          actorId: user.uid || 'lgu-admin',
+          actorName: user.name || 'Pasig Public Market Admin',
+          action: 'Acknowledged escalated report',
+          details: `${getReportCode(report)} — received for LGU action`,
+          category: 'LGU Case Action',
+          marketId: 'pasig',
+        },
+      )
+      setMessage('Receipt acknowledged. The case is now recorded as under LGU action.')
+      setReceipt({
+        title: 'Case receipt acknowledged',
+        reference: getReportCode(report),
+        details: [
+          { label: 'Authority', value: 'Pasig Public Market LGU' },
+          { label: 'Status', value: 'Under LGU Action' },
+          { label: 'Acknowledged by', value: user.name || 'Pasig Public Market Admin' },
+          { label: 'Recorded', value: formatDate(new Date().toISOString()) },
+        ],
+        nextStep: 'Review the evidence, document the enforcement response, and submit the final decision to BFAR-NCR.',
+      })
+      return true
+    } catch (item) {
+      setDecisionError(item.message || 'Unable to acknowledge this case.')
+      return false
+    } finally {
+      setSaving(false)
+    }
+  }
 
   async function submitDecision() {
     if (!action || caseResolved) return false
@@ -429,6 +615,11 @@ function LguReportAction({ report, user, error }) {
           status: 'resolved',
           lguAction: action,
           lguRemarks: remarks.trim(),
+          resolvedBy: {
+            uid: user.uid || 'lgu-admin',
+            name: user.name || 'Pasig Public Market Admin',
+            role: 'market_admin',
+          },
           marketId: 'pasig',
           assignedMarket: 'Pasig Public Market',
         },
@@ -442,6 +633,17 @@ function LguReportAction({ report, user, error }) {
         },
       )
       setMessage('Decision sent to BFAR-NCR.')
+      setReceipt({
+        title: 'Final LGU decision submitted',
+        reference: getReportCode(report),
+        details: [
+          { label: 'Decision', value: actionLabel(action) },
+          { label: 'Sent to', value: 'BFAR-NCR' },
+          { label: 'Completed by', value: user.name || 'Pasig Public Market Admin' },
+          { label: 'Recorded', value: formatDate(new Date().toISOString()) },
+        ],
+        nextStep: 'BFAR-NCR will review the LGU decision and communicate the approved conclusion to the original reporter.',
+      })
       return true
     } catch (item) {
       setDecisionError(item.message || 'Unable to submit the decision.')
@@ -475,10 +677,11 @@ function LguReportAction({ report, user, error }) {
         {report.assessment && <InspectionEvidence assessment={report.assessment} />}
         <InfoCard title="Administrative action" icon={FiCheckCircle}>
           {caseResolved && <p className="workflow-guidance">This decision has been submitted to BFAR-NCR and is now read-only.</p>}
-          {!caseResolved && <p className="workflow-guidance">BFAR-NCR has formally escalated this case for LGU action. Choose the enforcement response and document the reason before sending the final decision.</p>}
-          <label className="detail-field"><span>Action taken</span><select value={action} disabled={caseResolved} onChange={(event) => setAction(event.target.value)}><option value="">Select an action…</option><option value="warning">Issue a written warning</option><option value="remove">Remove product from sale</option><option value="suspend">Suspend vendor operations</option></select></label>
-          <label className="detail-field"><span>Remarks</span><textarea value={remarks} disabled={caseResolved} onChange={(event) => setRemarks(event.target.value)} placeholder="Add your decision and instructions for the vendor…" /></label>
-          <div className="detail-actions"><Link className="btn btn-outline btn-sm" to="/reports">Back to reports</Link>{!caseResolved && <button className="btn btn-primary btn-sm" disabled={!action || remarks.trim().length < 10 || isSaving} onClick={() => { setDecisionError(''); setConfirmOpen(true) }}><FiSend /> Submit final decision</button>}</div>
+          {!caseResolved && !caseAcknowledged && <p className="workflow-guidance">BFAR-NCR has formally escalated this case. Acknowledge receipt first so BFAR and the reporter can see that Pasig LGU has received it.</p>}
+          {!caseResolved && caseAcknowledged && <p className="workflow-guidance">Receipt is acknowledged and the case is under LGU action. Choose the enforcement response and document the reason before sending the final decision.</p>}
+          <label className="detail-field"><span>Action taken</span><select value={action} disabled={caseResolved || !caseAcknowledged} onChange={(event) => setAction(event.target.value)}><option value="">Select an action…</option><option value="warning">Issue a written warning</option><option value="remove">Remove product from sale</option><option value="suspend">Suspend vendor operations</option></select></label>
+          <label className="detail-field"><span>Remarks</span><textarea value={remarks} disabled={caseResolved || !caseAcknowledged} onChange={(event) => setRemarks(event.target.value)} placeholder="Add your decision and instructions for the vendor…" /></label>
+          <div className="detail-actions"><Link className="btn btn-outline btn-sm" to="/reports">Back to reports</Link>{!caseResolved && !caseAcknowledged && <button className="btn btn-primary btn-sm" disabled={isSaving} onClick={() => { setDecisionError(''); setAcknowledgeOpen(true) }}><FiCheckCircle /> Acknowledge case</button>}{!caseResolved && caseAcknowledged && <button className="btn btn-primary btn-sm" disabled={!action || remarks.trim().length < 10 || isSaving} onClick={() => { setDecisionError(''); setConfirmOpen(true) }}><FiSend /> Submit final decision</button>}</div>
           {message && <p className="bfar-review-status">{message}</p>}
         </InfoCard>
       </div>
@@ -494,10 +697,31 @@ function LguReportAction({ report, user, error }) {
     onConfirm={submitDecision}
     title="Submit the final LGU decision?"
     message="This will resolve the escalated case and send the decision to BFAR-NCR. The action and remarks will become read-only."
+    details={[
+      { label: 'Report', value: getReportCode(report) },
+      { label: 'Decision', value: actionLabel(action) },
+      { label: 'Recipient', value: 'BFAR-NCR' },
+    ]}
     confirmLabel="Submit decision"
     pendingLabel="Submitting…"
     error={decisionError}
   />
+  <ConfirmDialog
+    open={acknowledgeOpen}
+    onClose={() => { setAcknowledgeOpen(false); setDecisionError('') }}
+    onConfirm={acknowledgeCase}
+    title="Acknowledge receipt of this case?"
+    message="This records that Pasig LGU has received the escalation and started handling it. It does not resolve the case."
+    details={[
+      { label: 'Report', value: getReportCode(report) },
+      { label: 'Market', value: marketOf(report) },
+      { label: 'New status', value: 'Under LGU Action' },
+    ]}
+    confirmLabel="Acknowledge receipt"
+    pendingLabel="Acknowledging…"
+    error={decisionError}
+  />
+  <ActionReceiptModal open={!!receipt} onClose={() => setReceipt(null)} {...receipt} />
   </>
 }
 
@@ -512,8 +736,12 @@ function Summary({ report, kicker, statusOverride }) {
 function History({ report }) {
   return <ol className="action-history">
     {report.reporterUpdate?.sentAt && <li><strong>Conclusion sent to reporter</strong><span>{report.reporterUpdate.sentByName || 'BFAR-NCR Admin'} · {formatDate(report.reporterUpdate.sentAt)}</span></li>}
-    {report.lguAction && <li><strong>LGU action completed</strong><span>{actionLabel(report.lguAction)} · {formatDate(report.updatedAt)}</span></li>}
-    <li><strong>{report.assignedInspectorId ? `Assigned to ${report.assignedInspectorName || 'inspector'}` : 'Report submitted for review'}</strong><span>{formatDate(report.updatedAt || report.createdAt || report.date)}</span></li>
+    {report.lguAction && <li><strong>LGU action completed</strong><span>{report.resolvedBy?.name || 'Pasig Public Market Admin'} · {actionLabel(report.lguAction)} · {formatDate(report.resolvedAt || report.updatedAt)}</span></li>}
+    {report.lguAcknowledgedAt && <li><strong>Received by Pasig LGU</strong><span>{report.lguAcknowledgedBy?.name || 'Pasig Public Market Admin'} · {formatDate(report.lguAcknowledgedAt)}</span></li>}
+    {report.forwardedAt && <li><strong>Forwarded to Pasig LGU</strong><span>{report.forwardedBy?.name || 'BFAR-NCR Admin'} · {formatDate(report.forwardedAt)}</span></li>}
+    {report.inProgressAt && <li><strong>Field validation started</strong><span>{report.assignedInspectorName || 'Assigned inspector'} · {formatDate(report.inProgressAt)}</span></li>}
+    {report.assignedAt && <li><strong>Assigned to {report.assignedInspectorName || 'inspector'}</strong><span>{formatDate(report.assignedAt)}</span></li>}
+    {report.bfarAcknowledgedAt && <li><strong>Received by BFAR-NCR</strong><span>{report.reviewedBy?.name || 'BFAR-NCR Admin'} · {formatDate(report.bfarAcknowledgedAt)}</span></li>}
     <li><strong>Report submitted</strong><span>{report.createdBy?.name || 'Field inspector'} · {formatDate(report.createdAt || report.date)}</span></li>
   </ol>
 }
@@ -567,6 +795,71 @@ function withUnit(value, unit) {
   const text = evidenceValue(value)
   if (text === 'Not recorded' || text.toLowerCase().includes(unit.toLowerCase())) return text
   return unit === '%' ? `${text}%` : `${text} ${unit}`
+}
+
+function workflowTargetStatus({ assignable, report, status }) {
+  return assignable && !report.assignedInspectorId ? 'assigned' : status
+}
+
+function workflowConfirmationTitle(context) {
+  if (context.report.compatibility?.canonicalFieldsMissing?.length && ['forwarded-lgu', 'under-lgu-action'].includes(context.report.status)) return 'Complete the LGU report record?'
+  const nextStatus = workflowTargetStatus(context)
+  if (context.assignable && !context.report.assignedInspectorId) return 'Assign this report to an inspector?'
+  if (nextStatus === 'under-review') return 'Acknowledge and start BFAR review?'
+  if (nextStatus === 'needs-revision') return 'Return this report for revision?'
+  if (nextStatus === 'forwarded-lgu') return 'Forward this report to Pasig LGU?'
+  return 'Save this workflow update?'
+}
+
+function workflowConfirmationMessage(context) {
+  if (context.report.compatibility?.canonicalFieldsMissing?.length && ['forwarded-lgu', 'under-lgu-action'].includes(context.report.status)) return 'This will add the required Pasig market fields so the LGU can retrieve the report consistently. Existing inspection evidence will be preserved.'
+  const nextStatus = workflowTargetStatus(context)
+  if (context.assignable && !context.report.assignedInspectorId) return 'The selected inspector will receive this assignment through the shared reports collection.'
+  if (nextStatus === 'under-review') return 'This records that BFAR-NCR has received the report and started reviewing its evidence.'
+  if (nextStatus === 'needs-revision') return 'The report will remain with BFAR-NCR and be marked as requiring additional or corrected information.'
+  if (nextStatus === 'forwarded-lgu') return 'Pasig LGU will receive this case for acknowledgment and administrative action. Review the report details before continuing.'
+  return 'The selected status and workflow details will be saved to the shared report record and audit trail.'
+}
+
+function workflowConfirmationDetails({ assignable, report, status, assignedInspectorId, inspectors }) {
+  const nextStatus = workflowTargetStatus({ assignable, report, status })
+  const details = [
+    { label: 'Report', value: getReportCode(report) },
+    { label: 'Market', value: marketOf(report) },
+    { label: 'New status', value: statusLabel(nextStatus) },
+  ]
+  if (assignable) {
+    const inspector = inspectors.find((item) => item.id === assignedInspectorId)
+    details.push({ label: 'Inspector', value: inspector ? displayName(inspector) : 'Not selected' })
+  }
+  return details
+}
+
+function workflowConfirmationLabel(context) {
+  if (context.report.compatibility?.canonicalFieldsMissing?.length && ['forwarded-lgu', 'under-lgu-action'].includes(context.report.status)) return 'Complete record'
+  const nextStatus = workflowTargetStatus(context)
+  if (context.assignable && !context.report.assignedInspectorId) return 'Assign inspector'
+  if (nextStatus === 'under-review') return 'Start review'
+  if (nextStatus === 'needs-revision') return 'Request revision'
+  if (nextStatus === 'forwarded-lgu') return 'Forward to LGU'
+  return 'Save update'
+}
+
+function workflowReceiptTitle({ assignable, firstAssignment, nextStatus, needsCanonicalRepair }) {
+  if (needsCanonicalRepair) return 'Report record completed for LGU access'
+  if (assignable && firstAssignment) return 'Inspector assignment recorded'
+  if (nextStatus === 'under-review') return 'BFAR-NCR receipt acknowledged'
+  if (nextStatus === 'needs-revision') return 'Revision request recorded'
+  if (nextStatus === 'forwarded-lgu') return 'Report forwarded to Pasig LGU'
+  return 'Report workflow updated'
+}
+
+function workflowNextStep(status) {
+  if (status === 'assigned') return 'The assigned inspector can now receive and work on this report in the Inspector application.'
+  if (status === 'under-review') return 'BFAR-NCR should review the inspection evidence and decide whether the case requires revision or LGU escalation.'
+  if (status === 'needs-revision') return 'The report remains open while the required supporting information is completed.'
+  if (status === 'forwarded-lgu') return 'Pasig LGU must acknowledge receipt before recording its enforcement decision.'
+  return 'The updated status is visible to authorized users in real time.'
 }
 
 function reportWorkflowError(error) {

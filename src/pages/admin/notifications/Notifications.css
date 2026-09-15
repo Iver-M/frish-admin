@@ -19,3 +19,8 @@
 .notification-item__icon { align-items: center; border-radius: 50%; display: flex; height: 42px; justify-content: center; width: 42px; }.notification-item__icon--alert { background: #fbeae8; color: #d0463a; }.notification-item__icon--warning { background: #fcf3df; color: #c98a1b; }.notification-item__icon--success { background: #e7f7ee; color: #2e9e5b; }.notification-item__icon--info { background: #e9f3fa; color: #2c7fb8; }
 .notification-item__content strong { color: var(--text-primary); display: block; font-size: 14px; }.notification-item__content small { color: var(--text-secondary); display: block; font-size: 12px; margin-top: 4px; }.notification-item time { color: var(--text-muted); font-size: 11px; }
 @media (max-width: 640px) { .notifications-page__header { align-items: start; flex-direction: column; gap: 14px; }.notifications-card__heading { align-items: flex-start; flex-direction: column; gap: 10px; }.notification-item { grid-template-columns: 40px 1fr; }.notification-item time { grid-column: 2; }.notification-item__icon { height: 40px; width: 40px; } }
+
+.market-workspace .workspace-kicker,
+.notifications-card__heading span,
+.notification-item time { font-size: 12px; }
+.notifications-page__header p:not(.eyebrow) { font-size: 14px; line-height: 1.5; }

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { FiAlertCircle, FiAlertTriangle, FiBell, FiCheckCircle, FiFileText } from 'react-icons/fi'
+import { FiAlertCircle, FiAlertTriangle, FiBell, FiCheckCircle, FiFileText, FiMessageSquare } from 'react-icons/fi'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../../context/AuthContext.jsx'
 import { subscribeMarketRecords } from '../../../services/firestoreService.js'
 import { getReportCode } from '../../../utils/reportCode.js'
 import { markNotificationRead, markNotificationsRead, subscribeNotificationReadState } from '../../../utils/notificationReadState.js'
+import { normalizeFeedbackRecord } from '../../../utils/feedbackRecord.js'
 import { normalizeReportRecord } from '../../../utils/reportRecord.js'
 import { normalizeScanRecord } from '../../../utils/scanRecord.js'
 import './Notifications.css'
@@ -19,12 +20,21 @@ export default function Notifications() {
   const { user, isFirebaseEnabled } = useAuth()
   const [reports, setReports] = useState([])
   const [scans, setScans] = useState([])
+  const [feedback, setFeedback] = useState([])
   const [readNotificationIds, setReadNotificationIds] = useState(new Set())
   const [error, setError] = useState('')
 
   useEffect(() => {
     if (!isFirebaseEnabled) return undefined
     return subscribeMarketRecords('reports', user, setReports, (firebaseError) => setError(firebaseError.message || 'Unable to load live notifications.'))
+  }, [isFirebaseEnabled, user])
+
+  useEffect(() => {
+    if (!isFirebaseEnabled || user?.role !== 'bfar_admin') {
+      setFeedback([])
+      return undefined
+    }
+    return subscribeMarketRecords('feedback', user, setFeedback, (firebaseError) => setError(firebaseError.message || 'Unable to load feedback alerts.'))
   }, [isFirebaseEnabled, user])
 
   useEffect(
@@ -65,6 +75,17 @@ export default function Notifications() {
           path: `/reports/${report.id}`,
         }]
       }
+      if (user?.role === 'bfar_admin' && report.status === 'under-lgu-action') {
+        return [{
+          id: `lgu-acknowledged-${report.id}`,
+          title: 'Pasig LGU acknowledged the case',
+          detail: `${getReportCode(report)} — administrative action has started`,
+          createdAt: report.lguAcknowledgedAt || report.updatedAt || report.createdAt,
+          icon: FiCheckCircle,
+          kind: 'success',
+          path: `/reports/${report.id}`,
+        }]
+      }
       if (user?.role === 'market_admin' && report.status === 'forwarded-lgu') {
         return [{
           id: `forwarded-${report.id}`,
@@ -91,9 +112,22 @@ export default function Notifications() {
           path: '/assessments',
         }))
       : []
-    return [...reportNotifications, ...scanNotifications]
+    const feedbackNotifications = user?.role === 'bfar_admin'
+      ? feedback.map(normalizeFeedbackRecord)
+        .filter((item) => item.status === 'pending')
+        .map((item) => ({
+          id: `feedback-${item.id}`,
+          title: 'New mobile feedback received',
+          detail: `${item.feedbackCode} — ${item.user} · ${item.rating || 0}/5`,
+          createdAt: item.createdAt,
+          icon: FiMessageSquare,
+          kind: 'info',
+          path: '/feedback',
+        }))
+      : []
+    return [...reportNotifications, ...scanNotifications, ...feedbackNotifications]
       .sort((a, b) => timestampValue(b.createdAt) - timestampValue(a.createdAt))
-  }, [isFirebaseEnabled, reports, scans, user?.role])
+  }, [feedback, isFirebaseEnabled, reports, scans, user?.role])
 
   const unreadCount = notifications.filter((item) => !readNotificationIds.has(item.id)).length
   const headerCopy = user?.role === 'market_admin'

@@ -11,6 +11,7 @@ export default function ConfirmDialog({
   pendingLabel = 'Working…',
   danger = false,
   error = '',
+  details = [],
 }) {
   const [isPending, setPending] = useState(false)
 
@@ -52,20 +53,14 @@ export default function ConfirmDialog({
         </>
       }
     >
-      <p style={{ color: 'var(--text-secondary)', fontSize: 14, lineHeight: 1.5 }}>{message}</p>
+      <p className="confirm-dialog__message">{message}</p>
+      {details.length > 0 && (
+        <dl className="confirm-dialog__details">
+          {details.map((item) => <div key={item.label}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}
+        </dl>
+      )}
       {error && (
-        <p
-          role="alert"
-          style={{
-            color: 'var(--color-danger)',
-            background: 'var(--color-danger-bg)',
-            borderRadius: 'var(--radius-sm)',
-            fontSize: 13,
-            lineHeight: 1.45,
-            marginTop: 'var(--space-3)',
-            padding: '10px 12px',
-          }}
-        >
+        <p className="confirm-dialog__error" role="alert">
           {error}
         </p>
       )}

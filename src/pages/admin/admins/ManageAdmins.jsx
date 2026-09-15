@@ -203,8 +203,8 @@ export default function ManageAdmins() {
       >
         <form id="admin-profile-form" onSubmit={handleCreate}>
           <div className="manage-admins__form-note">
-            <strong>Authentication account required</strong>
-            <span>Create the sign-in account in Firebase Authentication first, then paste its exact UID below. Passwords are never stored in Firestore.</span>
+            <strong>Firebase Authentication identity required</strong>
+            <span>Create an Email/Password account or ask the administrator to try Continue with Google once, then copy the resulting Firebase Authentication UID and register it below.</span>
           </div>
           <div className="form-group">
             <label>Firebase Authentication UID</label>
@@ -215,7 +215,7 @@ export default function ManageAdmins() {
             <input required className="text-input" value={form.name} onChange={(event) => updateForm('name', event.target.value)} placeholder="e.g. Rosario Bautista" maxLength={100} />
           </div>
           <div className="form-group">
-            <label>Email</label>
+            <label>Administrator email</label>
             <input required type="email" className="text-input" value={form.email} onChange={(event) => updateForm('email', event.target.value)} placeholder="name@frish.gov.ph" maxLength={160} />
           </div>
           <div className="form-group">

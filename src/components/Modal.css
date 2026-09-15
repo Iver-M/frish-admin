@@ -69,3 +69,125 @@
   justify-content: flex-end;
   gap: var(--space-3);
 }
+
+.confirm-dialog__message {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.confirm-dialog__details,
+.action-receipt__details {
+  display: grid;
+  gap: 0;
+  margin: var(--space-4) 0 0;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+}
+
+.confirm-dialog__details > div,
+.action-receipt__details > div {
+  display: grid;
+  grid-template-columns: minmax(105px, .8fr) minmax(0, 1.5fr);
+  gap: var(--space-3);
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-color);
+  background: #fbfdff;
+}
+
+.confirm-dialog__details > div:last-child,
+.action-receipt__details > div:last-child {
+  border-bottom: 0;
+}
+
+.confirm-dialog__details dt,
+.action-receipt__details dt {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.confirm-dialog__details dd,
+.action-receipt__details dd {
+  overflow-wrap: anywhere;
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 650;
+  text-align: right;
+}
+
+.confirm-dialog__error {
+  margin-top: var(--space-3);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.action-receipt__summary {
+  display: grid;
+  justify-items: center;
+  padding: 4px 0 2px;
+  text-align: center;
+}
+
+.action-receipt__icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.action-receipt__summary h4 {
+  margin-top: 12px;
+  color: var(--text-primary);
+  font-size: 18px;
+}
+
+.action-receipt__reference {
+  margin-top: 5px;
+  color: var(--color-primary);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+
+.action-receipt__next-step {
+  margin-top: var(--space-4);
+  padding: 11px 12px;
+  border-left: 3px solid var(--color-secondary);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--color-info-bg);
+  color: #315d76;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+@media (max-width: 480px) {
+  .confirm-dialog__details > div,
+  .action-receipt__details > div {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+
+  .confirm-dialog__details dd,
+  .action-receipt__details dd {
+    text-align: left;
+  }
+}
+
+@media print {
+  body * { visibility: hidden; }
+  .action-receipt-modal,
+  .action-receipt-modal * { visibility: visible; }
+  .action-receipt-modal { position: fixed; inset: 0; max-width: none; max-height: none; box-shadow: none; }
+  .action-receipt-modal .modal__close,
+  .action-receipt-modal .modal__footer { display: none; }
+}

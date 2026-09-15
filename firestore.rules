@@ -2,24 +2,34 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
     function signedIn() {
       return request.auth != null;
     }
 
+    // Shared account helpers
     function profile() {
-      return get(
-        /databases/$(database)/documents/users/$(request.auth.uid)
-      ).data;
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function supportedAdminSession() {
+      return signedIn() && (
+        request.auth.token.firebase.sign_in_provider == 'password'
+        || (request.auth.token.firebase.sign_in_provider == 'google.com'
+          && request.auth.token.email_verified == true)
+      );
+    }
+
+    function activeProfile() {
+      return profile().get(
+        'accountStatus',
+        profile().get('status', 'active')
+      ) == 'active';
     }
 
     function isBfar() {
-      return signedIn()
+      return supportedAdminSession()
         && profile().role == 'bfar_admin'
-        && profile().get(
-          'accountStatus',
-          profile().get('status', 'active')
-        ) == 'active';
+        && activeProfile();
     }
 
     function isInspector() {
@@ -29,70 +39,162 @@ service cloud.firestore {
     }
 
     function isPasigMarketAdmin() {
-      return signedIn()
+      return supportedAdminSession()
         && profile().role == 'market_admin'
         && profile().marketId == 'pasig'
-        && profile().get(
-          'accountStatus',
-          profile().get('status', 'active')
-        ) == 'active';
+        && activeProfile();
+    }
+
+    function isAdmin() {
+      return isBfar() || isPasigMarketAdmin();
+    }
+
+    function ownsInspectorRecord(data) {
+      return signedIn()
+        && data.createdBy.uid == request.auth.uid
+        && data.createdBy.role == 'inspector';
     }
 
     function isPasigReportUpdate() {
+      // Old mobile reports may receive marketId only when BFAR forwards them.
       return isPasigMarketAdmin()
-        // Older Inspector submissions may not contain marketId until BFAR
-        // normalizes the report. LGU updates always write it back as pasig.
         && resource.data.get('marketId', '') in ['', 'pasig']
         && request.resource.data.get('marketId', '') == 'pasig';
     }
 
-    // Users collection
+    // Mobile users may create only their own active Inspector profile.
+    function isInspectorSelfProfileCreate(userId) {
+      return signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.role == 'inspector'
+        && request.resource.data.accountStatus == 'active'
+        && request.resource.data.keys().hasOnly([
+          'email', 'displayName', 'name', 'phone', 'role',
+          'accountStatus', 'createdAt', 'updatedAt'
+        ]);
+    }
+
+    // Inspectors may repair missing role/status fields and edit profile details.
+    function isInspectorSelfProfileUpdate(userId) {
+      return signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'displayName', 'name', 'phone', 'role', 'accountStatus', 'updatedAt'
+        ])
+        && resource.data.get('role', '') in ['', 'inspector']
+        && request.resource.data.get('role', '') == 'inspector'
+        && resource.data.get('accountStatus', '') in ['', 'active']
+        && request.resource.data.get('accountStatus', '') == 'active';
+    }
+
+    // Active admins may edit only their own non-security profile fields.
+    function isAdminSelfProfileUpdate(userId) {
+      return isAdmin()
+        && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'displayName', 'phone', 'department', 'updatedAt'
+        ])
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.get('accountStatus', 'active')
+          == resource.data.get('accountStatus', 'active')
+        && request.resource.data.get('marketId', '')
+          == resource.data.get('marketId', '');
+    }
+
+    // User profiles and role management
     match /users/{userId} {
       allow read: if signedIn();
-      allow create, update: if isBfar();
+      allow create: if isBfar() || isInspectorSelfProfileCreate(userId);
+      allow update: if isBfar()
+        || isInspectorSelfProfileUpdate(userId)
+        || isAdminSelfProfileUpdate(userId);
+      allow delete: if isBfar();
+    }
+
+    // Legacy assessment records remain admin-readable.
+    match /assessments/{assessmentId} {
+      allow read: if isAdmin();
+    }
+
+    // Inspector scan ownership; signed-in clients retain read compatibility.
+    match /scans/{scanId} {
+      allow create: if ownsInspectorRecord(request.resource.data);
+      allow read: if signedIn();
+      allow update: if ownsInspectorRecord(resource.data)
+        && ownsInspectorRecord(request.resource.data);
+      allow delete: if ownsInspectorRecord(resource.data);
+    }
+
+    // Inspector freshness predictions
+    match /predictions/{predictionId} {
+      allow create: if isInspector()
+        && request.resource.data.inspectorUid == request.auth.uid;
+      allow read: if signedIn()
+        && (resource.data.inspectorUid == request.auth.uid || isBfar());
+      allow update, delete: if isInspector()
+        && resource.data.inspectorUid == request.auth.uid;
+    }
+
+    // Pasig LGU vendor records
+    match /vendors/{vendorId} {
+      allow read: if isAdmin();
+      allow create: if isPasigMarketAdmin()
+        && request.resource.data.marketId == 'pasig';
+      allow update: if isPasigMarketAdmin()
+        && resource.data.marketId == 'pasig'
+        && request.resource.data.marketId == 'pasig';
       allow delete: if false;
     }
 
-    // Assessments collection
-    match /assessments/{assessmentId} {
-      allow read: if isBfar() || isPasigMarketAdmin();
-    }
+    // Inspector feedback and BFAR response lifecycle
+    match /feedback/{feedbackId} {
+      allow create: if isInspector()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.role == 'inspector'
+        && request.resource.data.rating is int
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5
+        && request.resource.data.message is string
+        && request.resource.data.message.size() > 0
+        && request.resource.data.message.size() <= 1000
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt is timestamp;
 
-    // Scans collection — preserved from the Inspector team's working rules.
-    match /scans/{scanId} {
-      allow create: if signedIn()
-        && request.resource.data.createdBy.uid == request.auth.uid
-        && request.resource.data.createdBy.role == 'inspector';
-
-      allow read: if signedIn();
-    }
-
-    // Reports collection — Inspector submission and access rules are
-    // preserved; BFAR reviews/forwards and the Pasig LGU resolves reports.
-    match /reports/{reportId} {
       allow read: if isBfar()
-        || isPasigMarketAdmin()
+        || (signedIn() && resource.data.userId == request.auth.uid);
+
+      allow update: if isBfar()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'updatedAt', 'adminReply', 'resolvedBy', 'resolvedAt'
+        ])
+        && request.resource.data.status in [
+          'pending', 'in-progress', 'reviewed', 'resolved', 'dismissed'
+        ]
+        && request.resource.data.updatedAt is timestamp;
+
+      allow delete: if isBfar();
+    }
+
+    // Inspector reports and BFAR-to-LGU workflow
+    match /reports/{reportId} {
+      allow read: if isAdmin()
         || (isInspector()
           && resource.data.keys().hasAny(['assignedInspectorId'])
           && resource.data.assignedInspectorId == request.auth.uid)
         || (isInspector()
           && resource.data.createdBy.uid == request.auth.uid);
 
-      allow create: if signedIn()
+      allow create: if ownsInspectorRecord(request.resource.data)
         && request.resource.data.status == 'submitted'
-        && request.resource.data.sourceType == 'inspector'
-        && request.resource.data.createdBy.uid == request.auth.uid
-        && request.resource.data.createdBy.role == 'inspector';
+        && request.resource.data.sourceType == 'inspector';
 
       allow update: if isBfar() || isPasigReportUpdate();
     }
 
-    // BFAR sends the reviewed LGU conclusion to the original reporter.
-    // Only the intended signed-in recipient can read or acknowledge it.
+    // Private BFAR conclusions for original reporters
     match /reporterNotifications/{notificationId} {
       allow read: if isBfar()
-        || (signedIn()
-          && resource.data.recipientUid == request.auth.uid);
+        || (signedIn() && resource.data.recipientUid == request.auth.uid);
 
       allow create: if isBfar()
         && request.resource.data.recipientUid is string
@@ -101,15 +203,18 @@ service cloud.firestore {
       allow update: if signedIn()
         && resource.data.recipientUid == request.auth.uid
         && request.resource.data.recipientUid == resource.data.recipientUid
-        && request.resource.data.reportId == resource.data.reportId;
+        && request.resource.data.reportId == resource.data.reportId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'readAt'
+        ])
+        && request.resource.data.readAt is timestamp;
 
       allow delete: if false;
     }
 
-    // BFAR management actions and LGU decisions use atomic audit entries.
+    // Append-only BFAR and LGU audit activity
     match /auditLogs/{logId} {
-      allow read: if isBfar() || isPasigMarketAdmin();
-      allow create: if isBfar() || isPasigMarketAdmin();
+      allow read, create: if isAdmin();
       allow update, delete: if false;
     }
   }

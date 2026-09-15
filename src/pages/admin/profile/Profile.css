@@ -5,6 +5,20 @@
   align-items: start;
 }
 
+.profile-page { max-width: 1280px; }
+.profile-live-indicator { align-items: center; color: var(--color-success); display: inline-flex; font-size: 12px; font-weight: 700; gap: 7px; }
+.profile-live-indicator span { background: var(--color-success); border-radius: 50%; box-shadow: 0 0 0 4px rgba(35, 126, 77, .1); height: 7px; width: 7px; }
+.profile-notice, .profile-error, .profile-modal-error { border: 1px solid; border-radius: 9px; font-size: 13px; line-height: 1.45; }
+.profile-notice { align-items: center; display: flex; gap: 9px; margin-bottom: var(--space-4); padding: 11px 13px; }
+.profile-notice--success { background: #edf8f2; border-color: #b9dfc9; color: #237e4d; }
+.profile-notice button { background: transparent; border: 0; color: inherit; cursor: pointer; font-size: 18px; margin-left: auto; }
+.profile-error, .profile-modal-error { background: #fff0ef; border-color: #f0c1bd; color: #a23832; padding: 10px 12px; }
+.profile-error { margin-bottom: var(--space-4); }
+.profile-modal-error { margin-top: var(--space-3); }
+.profile-field-help { color: var(--text-muted); display: block; font-size: 12px; line-height: 1.5; margin-top: 5px; }
+.profile-security__note { background: #f5f8fb; border-radius: 8px; color: var(--text-secondary); font-size: 12px; line-height: 1.5; padding: 11px 12px; }
+.profile-panel .text-input:disabled { background: #f3f6f9; color: var(--text-muted); cursor: not-allowed; }
+
 @media (max-width: 900px) {
   .profile-grid {
     grid-template-columns: 1fr;
@@ -26,12 +40,12 @@
 }
 
 .profile-panel__title {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
 }
 
 .profile-panel__subtitle {
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--text-muted);
   margin-top: 2px;
 }
@@ -72,7 +86,7 @@
 }
 
 .profile-overview__role {
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--color-primary);
   font-weight: 600;
   margin-top: 2px;
@@ -128,4 +142,11 @@
 .profile-info-list__value--active {
   color: var(--color-success);
   font-weight: 600;
+}
+
+.profile-info-list__value--inactive { color: var(--color-danger); font-weight: 600; }
+
+@media (max-width: 620px) {
+  .profile-panel__header-row { align-items: stretch; flex-direction: column; }
+  .profile-panel__header-row .btn { justify-content: center; width: 100%; }
 }

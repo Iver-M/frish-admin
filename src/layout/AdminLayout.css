@@ -13,6 +13,15 @@
 
 .admin-layout__content {
   flex: 1;
+  min-width: 0;
+  padding-inline: var(--content-gutter);
+}
+
+.admin-layout__content > .page {
+  margin-inline: auto;
+  max-width: var(--content-max-width);
+  padding-inline: 0;
+  width: 100%;
 }
 
 .bfar-welcome-banner {
@@ -21,17 +30,19 @@
   border-radius: 16px;
   box-shadow: 0 8px 20px rgba(36, 74, 132, .12);
   color: #fff;
-  margin: 24px 32px 0;
+  margin: 24px auto 0;
+  max-width: var(--content-max-width);
   min-height: 112px;
   padding: 22px 28px;
   display: flex;
   justify-content: space-between;
   gap: 20px;
+  width: calc(100% - 64px);
 }
 
-.bfar-welcome-banner span { font-size: 11px; font-weight: 800; letter-spacing: .04em; opacity: .9; }
+.bfar-welcome-banner span { font-size: 12px; font-weight: 800; letter-spacing: .04em; opacity: .9; }
 .bfar-welcome-banner h1 { font-size: clamp(23px, 3vw, 29px); letter-spacing: -.02em; margin: 6px 0 0; }
-.bfar-welcome-banner p { font-size: 12px; margin: 4px 0 0; opacity: .9; }
+.bfar-welcome-banner p { font-size: 14px; line-height: 1.5; margin: 4px 0 0; opacity: .9; }
 .bfar-welcome-banner__action { align-self: center; }
 .bfar-welcome-banner__action .btn { background: #fff; border-color: #fff; color: #07537c; }.bfar-welcome-banner__action .btn:hover { background: #eaf4fb; border-color: #eaf4fb; color: #033d60; }
 
@@ -45,7 +56,8 @@
 .admin-layout__content--bfar .notifications-page__header { justify-content: flex-end; }
 
 @media (max-width: 640px) {
-  .bfar-welcome-banner { margin: 18px 16px 0; min-height: 0; padding: 18px; }
+  .admin-layout__content { padding-inline: 16px; }
+  .bfar-welcome-banner { margin: 18px auto 0; min-height: 0; padding: 18px; width: calc(100% - 32px); }
 }
 .admin-layout__loading {
   display: grid;

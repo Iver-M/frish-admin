@@ -1,31 +1,38 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { FiDownload, FiRotateCcw } from 'react-icons/fi'
 import SearchBar from '../../../components/SearchBar.jsx'
 import StatusBadge from '../../../components/StatusBadge.jsx'
 import { getReports } from '../../../data/reports.js'
 import { useAuth } from '../../../context/AuthContext.jsx'
 import { BfarBannerAction } from '../../../layout/AdminLayout.jsx'
-import { subscribeMarketRecords } from '../../../services/firestoreService.js'
+import { subscribeInspectorProfiles, subscribeMarketRecords } from '../../../services/firestoreService.js'
 import { getReportCode } from '../../../utils/reportCode.js'
 import { isReportAssignable, normalizeReportRecord } from '../../../utils/reportRecord.js'
 import './Reports.css'
 
-const LIVE_STATUSES = ['submitted', 'assigned', 'in progress', 'forwarded-lgu', 'resolved']
+const LIVE_STATUSES = ['submitted', 'under-review', 'needs-revision', 'assigned', 'in progress', 'forwarded-lgu', 'under-lgu-action', 'resolved']
 const BFAR_FILTERS = [{ value: 'all', label: 'All reports' }, ...LIVE_STATUSES.map((value) => ({ value, label: statusLabel(value) }))]
 const LGU_FILTERS = [
   { value: 'all', label: 'All escalated cases' },
   { value: 'forwarded-lgu', label: 'Awaiting LGU action' },
+  { value: 'under-lgu-action', label: 'Under LGU action' },
   { value: 'resolved', label: 'Resolved' },
 ]
 
 export default function Reports() {
   const { user, isBfarAdmin, isFirebaseEnabled } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [reports, setReports] = useState(() => (isFirebaseEnabled ? [] : getReports()))
-  const [query, setQuery] = useState('')
+  const [inspectors, setInspectors] = useState([])
+  const [query, setQuery] = useState(() => searchParams.get('search') || '')
   const [statusFilter, setStatusFilter] = useState('all')
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    setQuery(searchParams.get('search') || '')
+  }, [searchParams])
 
   useEffect(() => {
     if (!isFirebaseEnabled) return undefined
@@ -37,11 +44,23 @@ export default function Reports() {
     )
   }, [isFirebaseEnabled, user])
 
+  useEffect(() => {
+    if (!isFirebaseEnabled || !isBfarAdmin) {
+      setInspectors([])
+      return undefined
+    }
+    return subscribeInspectorProfiles(setInspectors, () => setInspectors([]))
+  }, [isBfarAdmin, isFirebaseEnabled])
+
+  const inspectorNames = useMemo(() => new Map(inspectors.map((inspector) => [
+    inspector.id,
+    inspector.name || inspector.displayName || inspector.email || 'Inspector',
+  ])), [inspectors])
   const displayReports = useMemo(() => reports
-    .map(normalizeReportRecord)
-    .filter((report) => isBfarAdmin || ['forwarded-lgu', 'resolved'].includes(report.status))
+    .map((record) => withInspectorIdentity(normalizeReportRecord(record), inspectorNames))
+    .filter((report) => isBfarAdmin || ['forwarded-lgu', 'under-lgu-action', 'resolved'].includes(report.status))
     .sort((a, b) => timestampValue(b.updatedAt || b.createdAt) - timestampValue(a.updatedAt || a.createdAt)),
-  [isBfarAdmin, reports])
+  [inspectorNames, isBfarAdmin, reports])
   const filters = isBfarAdmin ? BFAR_FILTERS : LGU_FILTERS
   const filteredReports = useMemo(() => displayReports.filter((report) => {
     const searchValue = [
@@ -147,8 +166,8 @@ function ReportBoard({ reports, isLive, isBfarAdmin, onOpen }) {
                 <div className="bfar-report-card__facts">
                   <span><b>Vendor</b>{report.vendorName}</span>
                   <span>
-                    <b>{isBfarAdmin ? (assignable ? 'Assigned inspector' : 'Source') : 'Forwarded by'}</b>
-                    {isBfarAdmin ? (assignable ? report.assignedInspectorName || 'Awaiting BFAR review' : 'Inspector submission') : 'BFAR-NCR'}
+                    <b>{isBfarAdmin ? (assignable ? 'Assigned inspector' : 'Submitted by') : 'Forwarded by'}</b>
+                    {isBfarAdmin ? (assignable ? report.assignedInspectorName || 'Awaiting BFAR review' : report.createdBy?.name || report.createdBy?.email || 'Inspector') : 'BFAR-NCR'}
                   </span>
                   <span><b>Submitted</b>{formatTimestamp(report.createdAt)}</span>
                 </div>
@@ -169,6 +188,12 @@ function ReportBoard({ reports, isLive, isBfarAdmin, onOpen }) {
 
 function timestampValue(value) {
   return value?.toMillis?.() || (typeof value === 'string' ? Date.parse(value) || 0 : 0)
+}
+
+function withInspectorIdentity(report, inspectorNames) {
+  const creator = report.createdBy && typeof report.createdBy === 'object' ? report.createdBy : {}
+  const name = creator.name || inspectorNames.get(creator.uid)
+  return name ? { ...report, createdBy: { ...creator, name } } : report
 }
 
 function formatTimestamp(value) {

@@ -17,6 +17,9 @@ const STATUS_MAP = {
   'in progress': { label: 'In Progress', tone: 'warning' },
   assigned: { label: 'Assigned', tone: 'info' },
   submitted: { label: 'Submitted', tone: 'neutral' },
+  'under-review': { label: 'Under BFAR Review', tone: 'info' },
+  'needs-revision': { label: 'Needs Revision', tone: 'warning' },
+  'under-lgu-action': { label: 'Under LGU Action', tone: 'warning' },
   resolved: { label: 'Resolved', tone: 'success' },
 
   active: { label: 'Active', tone: 'success' },

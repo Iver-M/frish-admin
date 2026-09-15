@@ -94,8 +94,12 @@ export default function Dashboard() {
   const dashboardData = useMemo(() => {
     if (!isFirebaseEnabled) return demoDashboardData(user, isMarketAdmin)
 
+    const inspectorNames = new Map(liveInspectors.map((inspector) => [
+      inspector.id,
+      inspector.name || inspector.displayName || inspector.email || 'Inspector',
+    ]))
     const reports = liveReports
-      .map(normalizeReport)
+      .map((report) => normalizeReport(report, inspectorNames))
       .filter((report) => !isMarketAdmin || LGU_VISIBLE_STATUSES.has(report.status))
       .sort((a, b) => timestampValue(b.updatedAt || b.createdAt) - timestampValue(a.updatedAt || a.createdAt))
 
@@ -109,7 +113,7 @@ export default function Dashboard() {
     }
 
     const scans = liveScans
-      .map(normalizeScan)
+      .map((scan) => normalizeScan(scan, inspectorNames))
       .sort((a, b) => timestampValue(b.createdAt) - timestampValue(a.createdAt))
     const reviewQueue = reports.filter(isBfarActionable)
     return {
@@ -361,7 +365,7 @@ function marketStats(reports) {
   ]
 }
 
-function normalizeScan(scan) {
+function normalizeScan(scan, inspectorNames = new Map()) {
   const freshness = String(scan.freshness || scan.prediction || scan.status || '').toLowerCase()
   const status = freshness.includes('not fresh') || freshness.includes('spoiled') || freshness === 'fail'
     ? 'not-fresh'
@@ -375,7 +379,7 @@ function normalizeScan(scan) {
     id: scan.id || 'Assessment record',
     assessmentCode: getAssessmentCode(scan.id, scan.fishType || scan.species),
     species: scan.fishType || scan.species || 'Fish species not recorded',
-    inspector: scan.createdBy?.name || scan.createdBy?.email || scan.inspector || 'Inspector not recorded',
+    inspector: scan.createdBy?.name || inspectorNames.get(scan.createdBy?.uid) || scan.createdBy?.email || scan.inspector || 'Inspector not recorded',
     confidence: Number(scan.confidence),
     createdAt: scan.createdAt || scan.timestamp || scan.createdDate,
     image: webSafeImage(scan.imageUrl || scan.photoUrl || scan.imagePath || scan.photo),
@@ -383,7 +387,7 @@ function normalizeScan(scan) {
   }
 }
 
-function normalizeReport(report) {
+function normalizeReport(report, inspectorNames = new Map()) {
   const normalizedStatus = normalizeReportStatus(report.status)
   const fishType = report.assessment?.fishType || report.fishSpecies || ''
   return {
@@ -392,7 +396,7 @@ function normalizeReport(report) {
     title: report.title || report.issue || (fishType ? `${fishType} inspection report` : 'Inspection report'),
     vendorName: report.vendorName || report.vendor?.vendorName || 'Vendor not recorded',
     market: report.assignedMarket || report.market || report.location || 'Pasig Public Market',
-    submittedBy: report.createdBy?.name || report.createdBy?.email || report.reporter || report.inspector?.name || 'Inspector',
+    submittedBy: report.createdBy?.name || inspectorNames.get(report.createdBy?.uid) || report.createdBy?.email || report.reporter || report.inspector?.name || 'Inspector',
     reporterType: roleLabel(report.createdBy?.role || report.sourceType || report.reporterType),
     createdAt: report.createdAt || report.date,
     updatedAt: report.updatedAt,

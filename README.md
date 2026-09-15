@@ -40,8 +40,11 @@ The portal is part of the FRISH capstone system and connects to the same Firebas
 - LGU vendor compliance history
 - Dynamic notifications
 - Audit trail
-- User feedback
+- Live Inspector mobile feedback inbox
+- Report location-integrity review for Pasig Public Market
 - Administrator profile management
+
+With Firebase enabled, these operational modules use live Firestore data. Vendor Records is assembled from submitted `reports` and merged with managed `vendors` documents, while Profile Management reads and updates the signed-in administrator's `users/{UID}` profile. Demonstration records are used only when `VITE_USE_FIREBASE=false`.
 
 ## Technology
 
@@ -49,7 +52,7 @@ The portal is part of the FRISH capstone system and connects to the same Firebas
 - Vite 5
 - React Router 6
 - React Icons
-- Firebase Authentication
+- Firebase Authentication with Email/Password and Google administrator login
 - Cloud Firestore
 - Firebase Storage integration
 
@@ -112,6 +115,8 @@ Project settings > General > Your apps > Web app > SDK setup and configuration
 
 Do not commit `.env.local`, passwords, service-account files, or private keys.
 
+Enable the **Google** and **Email/Password** providers under **Firebase Authentication > Sign-in method**. Both methods require an authorized BFAR or LGU Firestore profile. Keep Email/Password enabled if it is also required by the Inspector mobile application.
+
 ### Secure authority evidence emulator
 
 The promoted Consumer authority-case viewer is disabled by default. For an
@@ -164,9 +169,9 @@ Preview the generated build with:
 npm run preview
 ```
 
-## Firebase user profiles
+## Google administrator login and Firestore profiles
 
-Firebase Authentication accounts require matching Firestore profiles. Create the profile inside the `users` collection and use the account's exact Firebase Authentication UID as the Firestore document ID.
+Firebase Authentication accounts require matching Firestore profiles. On the first Google sign-in attempt, Firebase creates the Authentication identity and the portal rejects it because no FRISH profile exists yet. Copy the new UID from Firebase Authentication, create the matching profile inside `users`, and sign in again.
 
 Do not use an Auto-ID or email address as the document ID.
 
@@ -204,7 +209,7 @@ users/{LGU_AUTH_UID}
   marketName: "Pasig Public Market"
 ```
 
-The Inspector Management and Manage Admins pages create and update Firestore profiles. They do not create Firebase Authentication accounts or passwords. Create the Authentication account first, then register its UID through the appropriate management page.
+The Inspector Management and Manage Admins pages create and update Firestore profiles. They do not create Google accounts or Firebase Authentication identities. For administrators, complete one Google sign-in attempt first, then register the resulting UID through Manage Admins or Firebase Console.
 
 ## Firestore collections
 
@@ -213,6 +218,8 @@ The Inspector Management and Manage Admins pages create and update Firestore pro
 | `users` | Inspector, BFAR, and LGU profiles and access status |
 | `scans` | Freshness assessments submitted by the Inspector app |
 | `reports` | Existing Inspector reports and BFAR/LGU workflow; not Consumer concerns |
+| `vendors` | LGU-managed operating status merged with vendor activity derived from reports |
+| `feedback` | Inspector mobile-app ratings and comments reviewed by BFAR |
 | `authorityCases` | Emulator-only promoted Consumer authority workflow |
 | `auditLogs` | Administrative actions and workflow history |
 | `reporterNotifications` | Private conclusions sent to original reporters |
@@ -239,6 +246,29 @@ createdBy.uid: authenticated inspector UID
 createdBy.role: "inspector"
 ```
 
+The portal accepts the current Inspector app's nested report payload without requiring a manual migration:
+
+```text
+assessment: { fishType, freshness, confidence, sensor, location, detectedParts, ... }
+vendor: { vendorName, stallNumber, contactNumber }
+inspector: { findings, actionTaken }
+```
+
+BFAR resolves `createdBy.uid` against `users/{UID}` so the report list and detail page show the inspector's managed profile name. When BFAR forwards a case, the portal adds the canonical Pasig market fields, the forwarding actor, workflow timestamp, and audit entry. The LGU decision follows the same audited pattern.
+
+If the mobile app submits usable coordinates, the report detail page shows a decision-support radius check for Pasig Public Market. The current 300-meter radius is provisional; replace it with the approved operational boundary before using the result for enforcement. A `0, 0` location is treated as not captured.
+
+## Mobile feedback workflow
+
+The BFAR User Feedback page listens to the Inspector app's `feedback` collection in real time. It supports the current mobile fields:
+
+```text
+userId, userEmail, userName, role, rating, message,
+createdAt, status, platform, appVersion
+```
+
+BFAR can record a response and resolve a feedback item. These actions also create audit entries. The current Inspector app does not yet listen for feedback replies, so saved responses remain administrative records until that mobile screen is implemented.
+
 ## Assessment records
 
 The Assessment page reads live records from the Firestore `scans` collection. Display codes use the following format:
@@ -254,7 +284,7 @@ Images stored as mobile `file://` paths are available only on the inspector's de
 
 ## Firestore rules
 
-The canonical combined emulator rules are stored in the sibling Consumer/backend repository at `../FRISH/firestore.rules`. This repository's historical rules file remains a legacy Admin reference and must not be deployed for the authority milestone.
+This repository's `firestore.rules` is the merged operational ruleset for the current Inspector/mobile and Admin Portal collections. It includes the live report, scan, feedback, vendor, administrator-profile, notification, and audit permissions. It intentionally does not enable the emulator-only Consumer authority contract.
 
 Coordinate rule changes with the Inspector mobile team before deployment. Deploy the rules with:
 
@@ -269,6 +299,17 @@ For shared contract `1.0.0`, deployment remains prohibited. The combined rules
 are emulator-tested only and have not been approved for production.
 Consumer `PRODUCTION_FIREBASE_APPROVED` remains `false`; no production Firebase
 data should be accessed for this milestone.
+
+## Firebase Hosting
+
+The project is configured to deploy the Vite `dist` folder to the Firebase Hosting target `frish` (`https://frish.web.app`). After changing the portal, publish the latest build with:
+
+```powershell
+npm run build
+firebase deploy --only hosting
+```
+
+Hosting deployment does not publish Firestore rules. When the operational rules changed and the mobile team has confirmed the merge, deploy them separately with `firebase deploy --only firestore:rules`.
 
 ## Updating a local copy
 

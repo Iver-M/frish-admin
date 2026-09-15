@@ -1,4 +1,10 @@
 .vendors-page, .reports-page { max-width: 1280px; }
+.vendor-live-indicator { align-items: center; color: #d9ffea; display: inline-flex; font-size: 11px; font-weight: 700; gap: 7px; }
+.vendor-live-indicator span { background: #63dfa0; border-radius: 50%; box-shadow: 0 0 0 4px rgba(99, 223, 160, .14); height: 7px; width: 7px; }
+.vendor-notice, .vendor-error { border: 1px solid; border-radius: 9px; font-size: 12px; line-height: 1.45; margin-bottom: 14px; padding: 10px 12px; }
+.vendor-notice { align-items: center; background: #edf8f2; border-color: #b9dfc9; color: #237e4d; display: flex; gap: 8px; }
+.vendor-notice button { background: transparent; border: 0; color: inherit; cursor: pointer; font-size: 18px; margin-left: auto; }
+.vendor-error { background: #fff0ef; border-color: #f0c1bd; color: #a23832; }
 .workspace-kicker { color: #28739d; font-size: 10px; font-weight: 800; letter-spacing: .09em; margin-bottom: 4px; }
 .market-workspace .page-header-row { background: #244a84; border-radius: 13px; color: #fff; padding: 18px 22px; }
 .market-workspace .workspace-kicker { color: #dcecff; }.market-workspace .page-header-row h2 { color: #fff; font-size: 22px; }.market-workspace .page-header-row__subtitle { color: #e0edfa; font-size: 12px; margin-top: 3px; }
@@ -11,3 +17,32 @@
 .vendor-history-card__compliance, .vendor-history-card__violations { align-self: center; line-height: 1; }
 .vendor-history__grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }.vendor-history-card { grid-template-columns: 28px minmax(0, 1fr) auto; min-width: 0; }
 .vendor-history-card__compliance { grid-column: 1 / span 2; justify-self: start; white-space: nowrap; }.vendor-history-card__violations { grid-column: 3; grid-row: 3; white-space: nowrap; }
+.vendor-history-card__view { align-items: center; color: #07537c; display: inline-flex; font-size: 9px; font-weight: 700; gap: 4px; justify-self: end; }
+.vendor-detail-grid { align-items: start; }
+.vendor-detail-grid p { min-width: 0; }
+.vendor-detail-grid .vendor-history-card__compliance { display: inline-flex; margin-left: 4px; }
+.vendor-detail-grid__source { grid-column: 1 / -1; }
+
+@media (max-width: 620px) {
+  .market-workspace .page-header-row { align-items: flex-start; flex-direction: column; }
+  .vendor-detail-grid__source { grid-column: auto; }
+}
+
+/* Shared readable hierarchy for vendor management. */
+.vendor-live-indicator,
+.workspace-kicker { font-size: 12px; }
+.market-workspace .page-header-row h2 { font-size: 26px; line-height: 1.3; }
+.market-workspace .page-header-row__subtitle { font-size: 14px; line-height: 1.5; }
+.market-workspace .table-card__table { font-size: 13px; }
+.market-workspace .table-card__table thead th { font-size: 12px; }
+.vendor-history__heading h3 { font-size: 17px; }
+.vendor-history__heading p,
+.vendor-history__heading span { font-size: 12px; line-height: 1.45; }
+.vendor-history-card { gap: 8px 11px; grid-template-columns: 34px minmax(0, 1fr) auto; padding: 15px; }
+.vendor-history-card__avatar { font-size: 12px; height: 30px; width: 30px; }
+.vendor-history-card__identity strong { font-size: 14px; }
+.vendor-history-card__identity small,
+.vendor-history-card__location,
+.vendor-history-card__violations,
+.vendor-history-card__view { font-size: 12px; line-height: 1.4; }
+.vendor-history-card__compliance { font-size: 12px; line-height: 1.25; padding: 5px 10px; }
