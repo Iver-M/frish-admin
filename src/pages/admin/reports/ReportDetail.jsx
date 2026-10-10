@@ -26,6 +26,7 @@ import {
 } from '../../../services/firestoreService.js'
 import { getReportCode } from '../../../utils/reportCode.js'
 import { reportTimestamp } from '../../../utils/consumerReportView.js'
+import { consumerPhotoEvidence } from '../../../utils/consumerPhotoEvidence.js'
 import {
   isReportAssignable,
   normalizeReportRecord,
@@ -218,18 +219,18 @@ function BfarReportReview({ report, user, error, isFirebaseEnabled }) {
       <div className="report-detail__main">
         <InfoCard title="Completeness and report details" icon={FiFileText}>
           <div className="detail-facts detail-facts--vendor">
-            <Fact label="Submitted by" value={report.createdBy?.name || report.reporter || 'Field inspector'} />
+            <Fact label="Submitted by" value={report.createdBy?.name || report.reporter || (report.sourceType === 'consumer' ? 'Consumer reporter' : 'Field inspector')} />
             <Fact label="Vendor" value={report.vendorName || 'Not recorded'} />
             <Fact label="Stall number" value={report.stallNumber || 'Not recorded'} />
-            <Fact label="Contact number" value={report.contactNumber || 'Not recorded'} />
+            {report.sourceType !== 'consumer' && <Fact label="Contact number" value={report.contactNumber || 'Not recorded'} />}
             <Fact label="Market" value={marketOf(report)} icon={<FiMapPin />} />
             <Fact label="Report source" value={reportSourceLabel(report)} />
           </div>
           <p className="finding-note">{report.description || report.issue || 'No report description recorded.'}</p>
-          {report.actionTaken && <p className="finding-note"><strong>Inspector action:</strong> {report.actionTaken}</p>}
+          {report.sourceType !== 'consumer' && report.actionTaken && <p className="finding-note"><strong>Inspector action:</strong> {report.actionTaken}</p>}
         </InfoCard>
 
-        {report.assessment && <InspectionEvidence assessment={report.assessment} />}
+        <ReportEvidence report={report} />
 
         <InfoCard title={assignable ? 'Field validation assignment' : 'BFAR review workflow'} icon={FiShield}>
           {needsCanonicalRepair && <p className="workflow-guidance">This report uses the Inspector app’s older format and is missing: {missingCanonicalFields.join(', ')}. Complete these fields so Firestore can route the case to the Pasig LGU.</p>}
@@ -296,6 +297,24 @@ function BfarReportReview({ report, user, error, isFirebaseEnabled }) {
       error={outcomeError}
     />
   </main>
+}
+
+export function ReportEvidence({ report }) {
+  if (report.sourceType !== 'consumer') return report.assessment ? <InspectionEvidence assessment={report.assessment} /> : null
+  // Legacy Consumer records share the detail route; only their photo data belongs here.
+  // Protected authority-case images continue through AuthorityEvidenceViewer, never this adapter.
+  const evidence = consumerPhotoEvidence(report.assessment)
+  if (!evidence) return null
+  return <InfoCard title="Photo evidence" icon={FiImage}>
+    <div className={evidence.imageUrl ? 'inspection-evidence' : undefined}>
+      {evidence.imageUrl && <img className="inspection-evidence__image" src={evidence.imageUrl} alt="Consumer fish photo" />}
+      {(evidence.fishType || evidence.freshness) && <dl className="inspection-evidence__facts">
+        {evidence.fishType && <Fact label="Fish species" value={evidence.fishType} />}
+        {evidence.freshness && <Fact label="Photo estimate" value={evidence.freshness} />}
+      </dl>}
+    </div>
+    {evidence.freshness && <p>Photo estimates do not certify food safety.</p>}
+  </InfoCard>
 }
 
 function InspectionEvidence({ assessment }) {
@@ -466,14 +485,14 @@ function LguReportAction({ report, user, error }) {
             <Fact label="Report source" value={report.sourceType || 'Inspector'} />
           </div>
         </InfoCard>
-        <InfoCard title="Inspection information" icon={FiShield}>
+        <InfoCard title={report.sourceType === 'consumer' ? 'Report findings' : 'Inspection information'} icon={FiShield}>
           <div className="detail-facts detail-facts--inspection">
             <Fact label="Report title" value={titleOf(report)} />
             <Fact label="Received" value={formatDate(report.createdAt || report.date)} icon={<FiCalendar />} />
           </div>
           <p>{report.description || report.issue || 'No inspection details recorded.'}</p>
         </InfoCard>
-        {report.assessment && <InspectionEvidence assessment={report.assessment} />}
+        <ReportEvidence report={report} />
         <InfoCard title="Administrative action" icon={FiCheckCircle}>
           {caseResolved && <p className="workflow-guidance">This decision has been submitted to BFAR-NCR and is now read-only.</p>}
           {!caseResolved && <p className="workflow-guidance">BFAR-NCR has formally escalated this case for LGU action. Choose the enforcement response and document the reason before sending the final decision.</p>}
@@ -515,7 +534,7 @@ function History({ report }) {
     {report.reporterUpdate?.sentAt && <li><strong>Conclusion sent to reporter</strong><span>{report.reporterUpdate.sentByName || 'BFAR-NCR Admin'} · {formatDate(report.reporterUpdate.sentAt)}</span></li>}
     {report.lguAction && <li><strong>LGU action completed</strong><span>{actionLabel(report.lguAction)} · {formatDate(report.updatedAt)}</span></li>}
     <li><strong>{report.assignedInspectorId ? `Assigned to ${report.assignedInspectorName || 'inspector'}` : 'Report submitted for review'}</strong><span>{formatDate(report.updatedAt || report.createdAt || report.date)}</span></li>
-    <li><strong>Report submitted</strong><span>{report.createdBy?.name || 'Field inspector'} · {formatDate(report.createdAt || report.date)}</span></li>
+    <li><strong>Report submitted</strong><span>{report.createdBy?.name || (report.sourceType === 'consumer' ? 'Consumer reporter' : 'Field inspector')} · {formatDate(report.createdAt || report.date)}</span></li>
   </ol>
 }
 

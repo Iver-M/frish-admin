@@ -6,6 +6,10 @@ Consumer uses the Inspector form's assessment-summary / details structure, with 
 
 Consumer concerns and Inspector submissions appear under Admin **Reports**, using the existing report cards, summary, vendor facts, detail cards and side panel. Source labels and a source filter distinguish them. The old Consumer Intake / Authority Cases links redirect to Reports; they are not extra sidebar destinations.
 
+Consumer evidence views show only available Consumer photo data. Legacy Consumer detail records use an allowlisted photo/species/photo-estimate presentation; missing fields and empty evidence cards are omitted. Sensor readings, GPS coordinates, Inspector Pass/Conditional/Fail decisions, combined confidence, shelf-life/storage recommendations, Inspector action and the Inspector contact-number field are excluded from Consumer detail presentation. Inspector evidence remains unchanged. This is a view-only distinction; stored report data is retained.
+
+Protected Consumer concern/case review no longer shows an empty **Assessment summary** card. Its **Photo evidence** section appears only after acceptance when the existing authorized image viewer is enabled. It does not reuse a legacy image URL or fabricate an estimate from unavailable/unapproved authority analysis. Current promoted cases have no approved analysis summary. The existing evidence access gate, retrieval, audit and temporary-image cleanup remain unchanged.
+
 This shares presentation, not database writes. Consumer records remain in their protected concern / authority-case workflow. No Consumer report is inserted into legacy `reports`, and no Admin client writes `consumerReportStatuses` directly.
 
 ## Latest main audit (2026-10-11)
@@ -38,14 +42,15 @@ Allowed BFAR actions use the existing `transitionAuthorityCase` v1 command: exac
 
 ## Verification
 
-- Admin `npm test`: **57 passed** (42 baseline plus 9 workflow and 6 shared-view tests).
+- Admin `npm test`: **60 passed** (42 baseline plus 9 workflow, 6 shared-view and 3 Consumer-photo presentation tests).
 - Admin `npm run build`: passed; existing >500 kB chunk warning remains. Vite needed execution outside the filesystem sandbox because sandboxed realpath returned EPERM.
 - Consumer active tests, explicitly selected from tracked `__tests__`: **948 passed, 54 suites**. Archived tests were excluded.
 - Consumer lint: **0 errors, 11 pre-existing warnings**.
 - Consumer Android JavaScript bundle passed. Metro recovered from an unreadable existing cache by doing a full crawl; no manual cache deletion was needed.
 - All four BFAR commands passed the actual Consumer backend command validator; pinned shared fixture/validator hashes matched the Consumer PR worktree.
 - Local synthetic browser checks: mixed-source queue, Consumer filter, existing detail-card layout, acceptance confirmation, assignment, unknown-result retry, automatic external update, stale-version conflict, LGU forwarding/read-only state, return to a queue with one promoted Consumer row, and 375×812 / 812×375 overflow checks passed. A banner overflow found on the narrow view was fixed; final document width equals viewport width.
-- Screenshots show synthetic local data and mock services, not cloud acceptance: [queue](consumer-reports-local-preview.jpg), [detail](consumer-report-detail-local-preview.jpg). No Firebase request was made by that fixture.
+- Consumer evidence follow-up: rendered the same mixed assessment data as Consumer and Inspector; Consumer showed only its loaded photo, species and supported photo estimate, while Inspector retained its sensor/assessment fields. A sensor-only Consumer fixture rendered no evidence card. Pending and accepted Consumer review omitted the empty assessment section with the image gate disabled. Both revised detail and evidence views had no horizontal overflow at 375×812. These checks use mock services and an existing repository photo, not actual cloud evidence.
+- Screenshots show synthetic local data and mock services, not cloud acceptance: [queue](consumer-reports-local-preview.jpg), [updated detail](consumer-report-detail-local-preview.jpg), [Consumer/Inspector evidence comparison](consumer-photo-evidence-local-preview.jpg). No Firebase request was made by those fixtures.
 - No new dependency was added. Functions/rules are unchanged; their full suites and emulator checks were not repeated for these presentation changes.
 
 ## Still deferred before live use

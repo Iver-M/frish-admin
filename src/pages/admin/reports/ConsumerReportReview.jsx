@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
-import { FiClock, FiFileText, FiShield, FiUser } from 'react-icons/fi'
+import { FiClock, FiFileText, FiImage, FiShield, FiUser } from 'react-icons/fi'
 import { useAuth } from '../../../context/AuthContext.jsx'
 import ConfirmDialog from '../../../components/ConfirmDialog.jsx'
 import { AUTHORITY_CASES_RUNTIME_ENABLED, authorityErrorMessage, getPendingConsumerConcern, promoteConsumerConcern, subscribeAuthorityCases } from '../../../services/authorityCasesBoundary.js'
@@ -8,6 +8,7 @@ import { consumerReportView } from '../../../utils/consumerReportView.js'
 import { Crumb, Summary, InfoCard, Fact } from './ReportDetail.jsx'
 import AuthorityCaseWorkflow from '../authority-cases/AuthorityCaseWorkflow.jsx'
 import AuthorityEvidenceViewer from '../authority-cases/AuthorityEvidenceViewer.jsx'
+import { isAuthorityEvidenceViewerEnabled } from '../../../services/authorityEvidenceService.js'
 import '../consumer-intake/ConsumerIntake.css'
 
 export default function ConsumerReportReview({ kind }) {
@@ -74,7 +75,7 @@ function Review({ kind, id, user }) {
         <div className="report-detail__main">
           <InfoCard title="Vendor information" icon={FiUser}><dl className="detail-facts detail-facts--vendor"><Fact label="Vendor / Stall" value={report.vendorName} /><Fact label="Market" value={report.assignedMarket} /><Fact label="Report source" value="Consumer" /><Fact label="Assigned inspector" value={report.assignedInspectorName || 'Awaiting assignment'} /></dl></InfoCard>
           <InfoCard title="Report findings" icon={FiFileText}><dl className="detail-facts"><Fact label="Reason for report" value={reasonLabel(report.reason)} /></dl><p>{report.description}</p></InfoCard>
-          <InfoCard title="Assessment summary" icon={FiShield}><p>Consumer photo estimates are not official inspection findings. A linked scan does not certify food safety.</p>{!concern ? <AuthorityEvidenceViewer record={record} user={user} /> : <p>Linked scan evidence is available only after BFAR acceptance through the approved evidence workflow.</p>}</InfoCard>
+          {!concern && isAuthorityEvidenceViewerEnabled(user) && <InfoCard title="Photo evidence" icon={FiImage}><AuthorityEvidenceViewer record={record} user={user} /></InfoCard>}
           <InfoCard title="Report review" icon={FiShield}>
             {concern ? <><p>Review these findings before accepting the concern. Acceptance submits it to the authority workflow and updates the Consumer’s report status.</p><button className="btn btn-primary" disabled={promoting} onClick={() => { setError(''); setConfirmOpen(true) }}>Accept report</button></> : <AuthorityCaseWorkflow record={record} user={user} onReload={() => setRetry(value => value + 1)} />}
           </InfoCard>
