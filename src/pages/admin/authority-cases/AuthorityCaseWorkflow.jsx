@@ -75,16 +75,15 @@ export default function AuthorityCaseWorkflow({ record, user, onReload }) {
 
   const selected = command && authorityAction(command.transition)
   return <section className="authority-workflow" aria-label="Consumer case review">
-    <h3>Case review</h3>
     <p>Changes here update the report’s progress. Photo estimates remain separate from the case status.</p>
     {record.status === 'forwarded_lgu' && <p>Awaiting the LGU decision. BFAR cannot mark this case resolved.</p>}
     {['resolved', 'closed_no_violation'].includes(record.status) && <p>This case is complete. No further status action is available.</p>}
     {!actions.length && !['forwarded_lgu', 'resolved', 'closed_no_violation'].includes(record.status)
       && <p>No BFAR action is available for this case and account.</p>}
     {canAssign && <label className="authority-workflow-field">
-      <span>Active inspector</span>
+      <span>Assigned inspector</span>
       <select value={inspectorId} onChange={event => setInspectorId(event.target.value)} disabled={loadingInspectors || pending || Boolean(command)}>
-        <option value="">{loadingInspectors ? 'Loading inspectors…' : 'Choose an inspector…'}</option>
+        <option value="">{loadingInspectors ? 'Loading inspectors…' : 'Choose an active inspector…'}</option>
         {inspectors.map(inspector => <option key={inspector.id} value={inspector.id}>{inspector.name || inspector.displayName || inspector.email}</option>)}
       </select>
     </label>}

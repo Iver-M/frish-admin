@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
-import { FiClock, FiFileText, FiImage, FiShield, FiUser } from 'react-icons/fi'
+import { FiClock, FiFileText, FiImage, FiMapPin, FiShield, FiUser } from 'react-icons/fi'
 import { useAuth } from '../../../context/AuthContext.jsx'
 import ConfirmDialog from '../../../components/ConfirmDialog.jsx'
 import { AUTHORITY_CASES_RUNTIME_ENABLED, authorityErrorMessage, getPendingConsumerConcern, promoteConsumerConcern, subscribeAuthorityCases } from '../../../services/authorityCasesBoundary.js'
-import { consumerReportView } from '../../../utils/consumerReportView.js'
-import { Crumb, Summary, InfoCard, Fact } from './ReportDetail.jsx'
+import { consumerReportView, reportTimestamp } from '../../../utils/consumerReportView.js'
+import { Crumb, Summary, InfoCard, Fact, formatDate } from './ReportDetail.jsx'
 import AuthorityCaseWorkflow from '../authority-cases/AuthorityCaseWorkflow.jsx'
 import AuthorityEvidenceViewer from '../authority-cases/AuthorityEvidenceViewer.jsx'
 import { isAuthorityEvidenceViewerEnabled } from '../../../services/authorityEvidenceService.js'
@@ -66,23 +66,46 @@ function Review({ kind, id, user }) {
   const report = record && consumerReportView(record, kind)
   if (loading && !record) return <main className="page report-detail"><p role="status">Loading Consumer report…</p></main>
   if (!report) return <main className="page report-detail"><Link to="/reports">Back to reports</Link><p role="alert">{error || 'Report not found or not permitted.'}</p><button className="btn btn-outline" onClick={() => setRetry(value => value + 1)}>Retry</button></main>
+  const latestRecordTime = concern || record.status === 'submitted' ? record.updatedAt || record.createdAt : record.updatedAt
   return <>
-    <main className="report-detail page">
-      <Crumb label="Back to reports" report={report} />
-      <Summary report={report} kicker="CONSUMER REPORT" statusOverride={report.statusLabel} />
+    <main className="report-detail bfar-report-review consumer-report-review page">
+      <Crumb label="Back to report management" report={report} />
+      <Summary report={report} kicker="BFAR-NCR REPORT REVIEW" statusOverride={report.statusLabel} />
       {error && !confirmOpen && <p role="alert">{error}</p>}
       <div className="report-detail__layout">
         <div className="report-detail__main">
-          <InfoCard title="Vendor information" icon={FiUser}><dl className="detail-facts detail-facts--vendor"><Fact label="Vendor / Stall" value={report.vendorName} /><Fact label="Market" value={report.assignedMarket} /><Fact label="Report source" value="Consumer" /><Fact label="Assigned inspector" value={report.assignedInspectorName || 'Awaiting assignment'} /></dl></InfoCard>
-          <InfoCard title="Report findings" icon={FiFileText}><dl className="detail-facts"><Fact label="Reason for report" value={reasonLabel(report.reason)} /></dl><p>{report.description}</p></InfoCard>
+          <InfoCard title="Completeness and report details" icon={FiFileText}>
+            <dl className="detail-facts detail-facts--vendor">
+              <Fact label="Submitted by" value="Consumer reporter" />
+              <Fact label="Vendor / Stall" value={report.vendorName} />
+              <Fact label="Market" value={report.assignedMarket} icon={<FiMapPin />} />
+              <Fact label="Report source" value="Consumer" />
+              <Fact label="Reason for report" value={reasonLabel(report.reason)} />
+            </dl>
+            <p className="finding-note"><strong>Findings:</strong> {report.description}</p>
+          </InfoCard>
           {!concern && isAuthorityEvidenceViewerEnabled(user) && <InfoCard title="Photo evidence" icon={FiImage}><AuthorityEvidenceViewer record={record} user={user} /></InfoCard>}
-          <InfoCard title="Report review" icon={FiShield}>
+          <InfoCard title="BFAR review workflow" icon={FiShield}>
             {concern ? <><p>Review these findings before accepting the concern. Acceptance submits it to the authority workflow and updates the Consumer’s report status.</p><button className="btn btn-primary" disabled={promoting} onClick={() => { setError(''); setConfirmOpen(true) }}>Accept report</button></> : <AuthorityCaseWorkflow record={record} user={user} onReload={() => setRetry(value => value + 1)} />}
           </InfoCard>
         </div>
         <aside className="report-detail__side">
-          <InfoCard title="Report progress" icon={FiClock}><p>{report.statusLabel}</p><p>{concern ? 'Awaiting BFAR acceptance.' : 'Status changes appear automatically in the Consumer’s History → Reports.'}</p></InfoCard>
-          <InfoCard title="Report metadata" icon={FiFileText}><dl className="metadata"><Fact label="Report source" value="Consumer" /><Fact label="Market" value={report.assignedMarket} /></dl><p>Reporter contacts remain protected. This view excludes Consumer identity and precise location.</p></InfoCard>
+          <InfoCard title="Workflow status" icon={FiClock}>
+            {/* The case projection has current state and intake time, not a full audit history. */}
+            <ol className="action-history">
+              <li><strong>{report.statusLabel}</strong>{reportTimestamp(latestRecordTime) > 0 && <span>{!concern && record.status !== 'submitted' ? 'Latest record update · ' : ''}{formatDate(latestRecordTime)}</span>}</li>
+              {!concern && record.status !== 'submitted' && reportTimestamp(record.promotedAt || record.createdAt) > 0 && <li><strong>Submitted to authority</strong><span>{formatDate(record.promotedAt || record.createdAt)}</span></li>}
+            </ol>
+            <p>{concern ? 'Awaiting BFAR acceptance.' : 'Status changes appear automatically in the Consumer’s History → Reports.'}</p>
+          </InfoCard>
+          <InfoCard title="Current record" icon={FiUser}>
+            <dl className="metadata">
+              <Fact label="Assigned inspector" value={report.assignedInspectorName || 'Unassigned'} />
+              <Fact label="Status" value={report.statusLabel} />
+              {reportTimestamp(report.createdAt) > 0 && <Fact label={concern ? 'Concern submitted' : 'Received by BFAR'} value={formatDate(report.createdAt)} />}
+            </dl>
+            <p>Reporter contacts remain protected. This view excludes Consumer identity and precise location.</p>
+          </InfoCard>
         </aside>
       </div>
     </main>

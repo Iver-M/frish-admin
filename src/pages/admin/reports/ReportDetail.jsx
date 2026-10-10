@@ -580,7 +580,7 @@ function canonicalReportFields(report) {
 }
 function displayName(inspector) { return inspector.name || inspector.displayName || inspector.email || `Inspector ${inspector.id.slice(0, 6)}` }
 function timestampValue(value) { return reportTimestamp(value) }
-function formatDate(value) { const timestamp = timestampValue(value); return timestamp ? new Intl.DateTimeFormat('en-PH', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(timestamp)) : 'Not recorded' }
+export function formatDate(value) { const timestamp = timestampValue(value); return timestamp ? new Intl.DateTimeFormat('en-PH', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(timestamp)) : 'Not recorded' }
 function statusLabel(status) { return String(status || 'submitted').replace(/[-_]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()) }
 function evidenceValue(value) { return value === null || value === undefined || value === '' ? 'Not recorded' : String(value) }
 function withUnit(value, unit) {

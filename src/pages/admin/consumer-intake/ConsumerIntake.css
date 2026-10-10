@@ -18,3 +18,6 @@
 .authority-workflow [role="alert"] { color: var(--color-danger, #942f29); }
 .authority-workflow [role="status"] { color: var(--text-primary, #193f57); }
 .authority-workflow select:focus-visible, .authority-workflow button:focus-visible { outline: 3px solid var(--color-primary); outline-offset: 2px; }
+.consumer-report-review .authority-workflow { border-top: 0; margin: 0; padding-top: 0; }
+.consumer-report-review .authority-workflow-field { max-width: none; }
+.consumer-report-review .authority-workflow-field > span { color: #536f83; font-size: 9px; font-weight: 800; text-transform: uppercase; }
