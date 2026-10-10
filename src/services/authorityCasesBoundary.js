@@ -1,6 +1,7 @@
-import { collection, doc, getDoc, getDocs, orderBy, query } from 'firebase/firestore'
+import { collection, doc, getDoc, getDocs, onSnapshot, orderBy, query } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import { db, functions, isAuthorityEmulatorEnabled } from './firebase.js'
+import { createAuthorityTransitionClient } from './authorityWorkflow.js'
 
 export const AUTHORITY_CASES_COLLECTION = 'authorityCases'
 export const AUTHORITY_CASES_RUNTIME_ENABLED = isAuthorityEmulatorEnabled
@@ -45,6 +46,19 @@ export function getPendingConsumerConcern(reportId) {
 
 export function promoteConsumerConcern(reportId, intake = {}) {
   return call('promoteConsumerConcern', { reportId, ...intake })
+}
+
+// The callable verifies current staff, App Check, policy, case version and audit.
+// Never reuse updateReportWithAudit or write the Consumer status feed here.
+export const transitionAuthorityCase = createAuthorityTransitionClient(command => call('transitionAuthorityCase', command))
+
+export function subscribeAuthorityCases(caseId, callback, onError) {
+  requireAuthorityCasesRuntime()
+  const target = caseId ? doc(db, AUTHORITY_CASES_COLLECTION, caseId)
+    : query(collection(db, AUTHORITY_CASES_COLLECTION), orderBy('createdAt', 'desc'))
+  return onSnapshot(target, snapshot => callback(caseId
+    ? snapshot.exists() ? sanitizeAuthorityCase({ id: snapshot.id, ...snapshot.data() }) : null
+    : snapshot.docs.map(record => sanitizeAuthorityCase({ id: record.id, ...record.data() }))), onError)
 }
 
 export async function listAuthorityCases() {

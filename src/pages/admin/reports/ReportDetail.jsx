@@ -25,6 +25,7 @@ import {
   updateReportWithAudit,
 } from '../../../services/firestoreService.js'
 import { getReportCode } from '../../../utils/reportCode.js'
+import { reportTimestamp } from '../../../utils/consumerReportView.js'
 import {
   isReportAssignable,
   normalizeReportRecord,
@@ -501,11 +502,11 @@ function LguReportAction({ report, user, error }) {
   </>
 }
 
-function Crumb({ label, report }) {
+export function Crumb({ label, report }) {
   return <div className="report-detail__crumb"><Link to="/reports"><FiArrowLeft /> {label}</Link><span>{getReportCode(report)} · {reportSourceLabel(report)} report</span></div>
 }
 
-function Summary({ report, kicker, statusOverride }) {
+export function Summary({ report, kicker, statusOverride }) {
   return <div className="report-detail__summary"><div><p className="workspace-kicker">{kicker}</p><h2>{titleOf(report)}</h2><p>{marketOf(report)} · Received {formatDate(report.createdAt || report.date)}</p></div><StatusBadge status={report.status || 'submitted'} label={statusOverride} /></div>
 }
 
@@ -518,11 +519,11 @@ function History({ report }) {
   </ol>
 }
 
-function InfoCard({ title, icon: Icon, children }) {
+export function InfoCard({ title, icon: Icon, children }) {
   return <section className="detail-card"><header><span><Icon />{title}</span></header><div className="detail-card__body">{children}</div></section>
 }
 
-function Fact({ label, value, icon }) {
+export function Fact({ label, value, icon }) {
   return <div className={`detail-fact ${icon ? 'detail-fact--with-icon' : ''}`}>{icon && <span className="detail-fact__icon">{icon}</span>}<dt>{label}</dt><dd>{value}</dd></div>
 }
 
@@ -559,7 +560,7 @@ function canonicalReportFields(report) {
   }
 }
 function displayName(inspector) { return inspector.name || inspector.displayName || inspector.email || `Inspector ${inspector.id.slice(0, 6)}` }
-function timestampValue(value) { return value?.toMillis?.() || (typeof value === 'string' ? Date.parse(value) || 0 : 0) }
+function timestampValue(value) { return reportTimestamp(value) }
 function formatDate(value) { const timestamp = timestampValue(value); return timestamp ? new Intl.DateTimeFormat('en-PH', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(timestamp)) : 'Not recorded' }
 function statusLabel(status) { return String(status || 'submitted').replace(/[-_]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()) }
 function evidenceValue(value) { return value === null || value === undefined || value === '' ? 'Not recorded' : String(value) }

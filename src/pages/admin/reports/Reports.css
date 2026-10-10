@@ -23,7 +23,7 @@
 }
 
 .reports-page { max-width: 1280px; }
-.reports-banner-actions { display: flex; gap: 10px; }
+.reports-banner-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .reports-page__header { align-items: flex-end; }
 .reports-page__header-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
 .reports-live-indicator { align-items: center; color: #26734d; display: inline-flex; font-size: 12px; font-weight: 700; gap: 7px; }
@@ -83,3 +83,10 @@
 .market-workspace .workspace-kicker { color: #dcecff; }.market-workspace .page-header-row h2 { color: #fff; font-size: 22px; }.market-workspace .page-header-row__subtitle { color: #e0edfa; font-size: 12px; margin-top: 3px; }
 .market-workspace .stat-grid { gap: 12px; }.market-workspace .stat-card { border-radius: 10px; box-shadow: 0 2px 5px rgba(29, 55, 75, .12); padding: 14px; }.market-workspace .stat-card__label { color: #155374; font-size: 12px; }.market-workspace .stat-card__value { font-size: 27px; }
 .workspace-toolbar { background: #fff; border: 1px solid #cfe0ec; border-radius: 10px; padding: 10px; }.market-workspace .table-card { border-color: #2d6594; border-radius: 10px; }.market-workspace .table-card__header { background: #f3f8fc; padding: 15px 18px 10px; }.market-workspace .table-card__title { color: #07537c; }.market-workspace .table-card__table { font-size: 12px; }.market-workspace .table-card__table thead th { background: #f6faff; color: #33627d; font-size: 10px; padding: 11px 14px; }.market-workspace .table-card__table tbody td { padding: 12px 14px; }.market-workspace .table-icon-btn { border-color: #2b6894; color: #07537c; }
+.bfar-report-card__source { color: var(--text-secondary); font-size: 12px; margin-bottom: 10px; }
+.bfar-report-card { overflow-wrap: anywhere; }
+.reports-page__toolbar .select-input { max-width: 100%; min-height: 44px; }
+.bfar-report-card footer .btn { min-height: 44px; }
+.reports-banner-actions .btn { min-height: 44px; }
+@media (max-width: 640px) { .reports-banner-actions { flex-direction: column; }.reports-banner-actions .btn { width: 100%; } }
+.reports-notice { background: #eef7fc; border: 1px solid #cfe0ec; border-radius: 8px; color: #315d76; font-size: 13px; margin: 0; padding: 10px 12px; }

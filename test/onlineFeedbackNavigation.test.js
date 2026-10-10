@@ -49,7 +49,7 @@ test('Admin uses cloud Firebase for legacy pages without enabling Consumer autho
   assert.match(firebase, /export const isAuthorityEmulatorEnabled = false/)
   assert.doesNotMatch(firebase, /connect(?:Auth|Firestore|Functions|Storage)Emulator/)
   assert.match(environment, /PRODUCTION_FIREBASE_APPROVED = false/)
-  assert.match(sidebar, /AUTHORITY_CASES_RUNTIME_ENABLED \? \[/)
+  assert.doesNotMatch(sidebar, /to: '\/consumer-intake'|to: '\/authority-cases'/)
 })
 
 test('only the feedback module invokes the feedback callable and never accesses Firestore or Storage directly', async () => {

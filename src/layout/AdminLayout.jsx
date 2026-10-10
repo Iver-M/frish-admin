@@ -1,4 +1,5 @@
 import { FEEDBACK_MODE } from '../services/feedbackEnvironment.js'
+import { reportRouteRoot } from '../utils/consumerReportView.js'
 import { createContext, useContext, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Outlet, Navigate, useNavigate, useLocation } from 'react-router-dom'
@@ -68,11 +69,7 @@ export default function AdminLayout() {
 
   // Logged in, but this role isn't allowed on this route — send to Dashboard
   // rather than showing a broken/empty page.
-  const routeRoot = location.pathname.startsWith('/consumer-intake/')
-    ? '/consumer-intake'
-    : location.pathname.startsWith('/authority-cases/')
-      ? '/authority-cases'
-      : location.pathname
+  const routeRoot = reportRouteRoot(location.pathname)
   const allowedRoles = ROUTE_ACCESS[routeRoot]
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     return <Navigate to="/dashboard" replace />
@@ -91,7 +88,8 @@ export default function AdminLayout() {
     }
   }
 
-  const [pageTitle, pageSubtitle] = BFAR_PAGE_HEADERS[routeRoot] || ['FRISH Admin Portal', 'Manage your FRISH administration workspace.']
+  const headerRoot = location.pathname.startsWith('/reports/') ? '/reports' : routeRoot
+  const [pageTitle, pageSubtitle] = BFAR_PAGE_HEADERS[headerRoot] || ['FRISH Admin Portal', 'Manage your FRISH administration workspace.']
   return (
     <BannerActionContext.Provider value={bannerActionTarget}>
     <div className="admin-layout">

@@ -8,11 +8,14 @@ import { useAuth } from '../../../context/AuthContext.jsx'
 import { BfarBannerAction } from '../../../layout/AdminLayout.jsx'
 import { subscribeMarketRecords } from '../../../services/firestoreService.js'
 import { getReportCode } from '../../../utils/reportCode.js'
-import { isReportAssignable, normalizeReportRecord } from '../../../utils/reportRecord.js'
+import { isReportAssignable, normalizeReportRecord, reportSourceLabel } from '../../../utils/reportRecord.js'
+import { combineReportViews, reportViewPath, reportTimestamp } from '../../../utils/consumerReportView.js'
+import { AUTHORITY_CASES_RUNTIME_ENABLED } from '../../../services/authorityCasesBoundary.js'
+import useConsumerReports from './useConsumerReports.js'
 import './Reports.css'
 
 const LIVE_STATUSES = ['submitted', 'assigned', 'in progress', 'forwarded-lgu', 'resolved']
-const BFAR_FILTERS = [{ value: 'all', label: 'All reports' }, ...LIVE_STATUSES.map((value) => ({ value, label: statusLabel(value) }))]
+const BFAR_FILTERS = [{ value: 'all', label: 'All reports' }, { value: 'awaiting-review', label: 'Awaiting BFAR review' }, ...LIVE_STATUSES.map((value) => ({ value, label: statusLabel(value) })), { value: 'closed_no_violation', label: 'Closed — no violation' }]
 const LGU_FILTERS = [
   { value: 'all', label: 'All escalated cases' },
   { value: 'forwarded-lgu', label: 'Awaiting LGU action' },
@@ -26,22 +29,27 @@ export default function Reports() {
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [error, setError] = useState('')
+  const legacyScope = `${user?.uid}:${user?.role}:${user?.accountStatus}:${user?.marketId}:${isFirebaseEnabled}`
+  const [reportScope, setReportScope] = useState('')
+  const [sourceFilter, setSourceFilter] = useState('all')
+  const consumer = useConsumerReports(user, isBfarAdmin && isFirebaseEnabled)
 
   useEffect(() => {
     if (!isFirebaseEnabled) return undefined
-    return subscribeMarketRecords(
-      'reports',
-      user,
-      setReports,
-      (firebaseError) => setError(firebaseError.message || 'Unable to load reports.'),
-    )
-  }, [isFirebaseEnabled, user])
+    let active = true
+    let unsubscribe
+    setReports([]); setError(''); setReportScope(legacyScope)
+    const failed = () => { if (active) { setReports([]); setError('Unable to load reports for this account.') } }
+    try {
+      unsubscribe = subscribeMarketRecords('reports', user, records => { if (active) setReports(records) }, failed)
+    } catch { failed() }
+    return () => { active = false; unsubscribe?.() }
+  }, [isFirebaseEnabled, user, legacyScope])
 
-  const displayReports = useMemo(() => reports
-    .map(normalizeReportRecord)
+  const displayReports = useMemo(() => combineReportViews((!isFirebaseEnabled || reportScope === legacyScope ? reports : []).map(normalizeReportRecord), consumer.concerns, consumer.cases)
     .filter((report) => isBfarAdmin || ['forwarded-lgu', 'resolved'].includes(report.status))
     .sort((a, b) => timestampValue(b.updatedAt || b.createdAt) - timestampValue(a.updatedAt || a.createdAt)),
-  [isBfarAdmin, reports])
+  [isBfarAdmin, isFirebaseEnabled, reportScope, legacyScope, reports, consumer.concerns, consumer.cases])
   const filters = isBfarAdmin ? BFAR_FILTERS : LGU_FILTERS
   const filteredReports = useMemo(() => displayReports.filter((report) => {
     const searchValue = [
@@ -56,7 +64,8 @@ export default function Reports() {
     ].join(' ').toLowerCase()
     return searchValue.includes(query.trim().toLowerCase())
       && (statusFilter === 'all' || report.status === statusFilter)
-  }), [displayReports, query, statusFilter])
+      && (sourceFilter === 'all' || report.sourceType === sourceFilter)
+  }), [displayReports, query, statusFilter, sourceFilter])
 
   function handleExport() {
     const headers = ['Report code', 'Title', 'Vendor', 'Market', 'Source', 'Inspector', 'Status', 'Submitted']
@@ -67,7 +76,7 @@ export default function Reports() {
       report.assignedMarket,
       report.sourceType,
       report.assignedInspectorName,
-      statusLabel(report.status),
+      report.statusLabel || statusLabel(report.status),
       formatTimestamp(report.createdAt),
     ])
     downloadCsv(`frish-reports-${new Date().toISOString().slice(0, 10)}.csv`, [headers, ...rows])
@@ -90,12 +99,12 @@ export default function Reports() {
           <h2>{isBfarAdmin ? 'BFAR report review' : 'Reports forwarded by BFAR-NCR'}</h2>
           <p className="page-header-row__subtitle">
             {isBfarAdmin
-              ? 'Review existing inspector submissions and track the live workflow. Prototype consumer concerns are not authority cases and do not enter this queue.'
+              ? 'Review Consumer and Inspector reports in one place. Open a report to review findings and track its progress.'
               : 'Review only the cases formally escalated to Pasig Public Market and return the LGU decision to BFAR-NCR.'}
           </p>
         </div>
         <div className="reports-page__header-actions">
-          {isFirebaseEnabled && <span className="reports-live-indicator"><i /> Live Firebase data</span>}
+          {isFirebaseEnabled && <span className="reports-live-indicator"><i /> Report status updates automatically</span>}
           {!isBfarAdmin && <button className="btn btn-outline btn-sm" onClick={handleExport} disabled={filteredReports.length === 0}><FiDownload size={14} /> Export cases</button>}
         </div>
       </div>
@@ -105,19 +114,23 @@ export default function Reports() {
         <select className="select-input" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter by report status">
           {filters.map((filter) => <option key={filter.value} value={filter.value}>{filter.label}</option>)}
         </select>
-        {(query || statusFilter !== 'all') && (
-          <button className="btn btn-outline btn-sm" onClick={() => { setQuery(''); setStatusFilter('all') }}>
+        {isBfarAdmin && <select className="select-input" value={sourceFilter} onChange={event => setSourceFilter(event.target.value)} aria-label="Filter by report source"><option value="all">All sources</option><option value="consumer">Consumer</option><option value="inspector">Inspector</option><option value="follow-up">Follow-up</option></select>}
+        {(query || statusFilter !== 'all' || sourceFilter !== 'all') && (
+          <button className="btn btn-outline btn-sm" onClick={() => { setQuery(''); setStatusFilter('all'); setSourceFilter('all') }}>
             <FiRotateCcw size={14} /> Clear
           </button>
         )}
       </div>
 
-      {error && <p className="reports-error" role="alert">{error}</p>}
+      {error && reportScope === legacyScope && <p className="reports-error" role="alert">{error}</p>}
+      {isBfarAdmin && !AUTHORITY_CASES_RUNTIME_ENABLED && <p className="reports-notice">Consumer reports are not connected in this environment yet. Inspector reports remain available.</p>}
+      {consumer.loading && <p role="status">Loading Consumer reports…</p>}
+      {[consumer.intakeError, consumer.caseError].filter(Boolean).map((message, index) => <p className="reports-error" role="alert" key={index}>{message}</p>)}
       <ReportBoard
         reports={filteredReports}
         isLive={isFirebaseEnabled}
         isBfarAdmin={isBfarAdmin}
-        onOpen={(report) => navigate(`/reports/${report.id}`)}
+        onOpen={(report) => navigate(reportViewPath(report))}
       />
     </div>
   )
@@ -129,7 +142,7 @@ function ReportBoard({ reports, isLive, isBfarAdmin, onOpen }) {
       <div className="bfar-report-board__heading">
         <div>
           <h3>{isBfarAdmin ? (isLive ? 'Submitted report queue' : 'Report review queue') : 'Escalated case queue'}</h3>
-          <p>{isBfarAdmin ? (isLive ? 'Inspector reports are reviewed directly. Consumer prototype concerns remain outside this queue until trusted backend promotion is implemented.' : 'Sample records are shown until Firebase data is enabled.') : 'Awaiting-action cases require an LGU decision. Resolved cases remain available as read-only records.'}</p>
+          <p>{isBfarAdmin ? (isLive ? 'Source labels distinguish Consumer concerns from Inspector submissions. Consumer concerns require BFAR acceptance before assignment.' : 'Sample records are shown until Firebase data is enabled.') : 'Awaiting-action cases require an LGU decision. Resolved cases remain available as read-only records.'}</p>
         </div>
         <span>{reports.length} reports</span>
       </div>
@@ -138,12 +151,13 @@ function ReportBoard({ reports, isLive, isBfarAdmin, onOpen }) {
           {reports.map((report) => {
             const assignable = isReportAssignable(report)
             return (
-              <article className="bfar-report-card" key={report.id}>
+              <article className="bfar-report-card" key={report.viewKey}>
                 <div className="bfar-report-card__top">
                   <div><strong>{getReportCode(report)}</strong><span>{report.assignedMarket}</span></div>
-                  <StatusBadge status={report.status} label={!isBfarAdmin && report.status === 'forwarded-lgu' ? 'Awaiting LGU Action' : undefined} />
+                  <StatusBadge status={report.status} label={report.statusLabel || (!isBfarAdmin && report.status === 'forwarded-lgu' ? 'Awaiting LGU Action' : undefined)} />
                 </div>
                 <h4>{report.title}</h4>
+                <p className="bfar-report-card__source">{reportSourceLabel(report)} report</p>
                 <div className="bfar-report-card__facts">
                   <span><b>Vendor</b>{report.vendorName}</span>
                   <span>
@@ -155,7 +169,7 @@ function ReportBoard({ reports, isLive, isBfarAdmin, onOpen }) {
                 <footer>
                   <span>{report.description}</span>
                   <button className={`btn btn-sm ${!isBfarAdmin && report.status === 'forwarded-lgu' ? 'btn-primary' : 'btn-outline'}`} onClick={() => onOpen(report)}>
-                    {isBfarAdmin ? (isLive && assignable && !report.assignedInspectorId ? 'Review & assign' : 'Review report') : report.status === 'resolved' ? 'View decision' : 'Review & decide'}
+                    {isBfarAdmin ? (report.viewKind === 'concern' ? 'Review report' : isLive && assignable && report.status === 'submitted' && !report.assignedInspectorId ? 'Review & assign' : 'Review report') : report.status === 'resolved' ? 'View decision' : 'Review & decide'}
                   </button>
                 </footer>
               </article>
@@ -168,7 +182,7 @@ function ReportBoard({ reports, isLive, isBfarAdmin, onOpen }) {
 }
 
 function timestampValue(value) {
-  return value?.toMillis?.() || (typeof value === 'string' ? Date.parse(value) || 0 : 0)
+  return reportTimestamp(value)
 }
 
 function formatTimestamp(value) {
@@ -179,6 +193,8 @@ function formatTimestamp(value) {
 }
 
 function statusLabel(status) {
+  const labels = { assigned: 'Assigned / Under review', 'in progress': 'In progress / Investigating', 'forwarded-lgu': 'Forwarded to LGU' }
+  if (labels[status]) return labels[status]
   return status.replace(/[-_]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 

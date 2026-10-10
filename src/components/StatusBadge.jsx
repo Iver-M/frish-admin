@@ -3,6 +3,8 @@ import './StatusBadge.css'
 // Central map so every page renders statuses consistently.
 // Extend this map, don't create one-off badge styles per page.
 const STATUS_MAP = {
+  'awaiting-review': { label: 'Awaiting BFAR review', tone: 'info' },
+  closed_no_violation: { label: 'Closed — no violation', tone: 'success' },
   fresh: { label: 'Fresh', tone: 'success' },
   'not-fresh': { label: 'Not Fresh', tone: 'danger' },
   moderate: { label: 'Moderate', tone: 'warning' },
