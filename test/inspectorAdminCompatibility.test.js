@@ -3,6 +3,7 @@ import { test } from 'node:test'
 import { normalizeFeedbackRecord } from '../src/utils/feedbackRecord.js'
 import {
   assessMarketLocation,
+  googleMapsView,
   PASIG_PUBLIC_MARKET_GEOFENCE,
 } from '../src/utils/locationIntegrity.js'
 import { normalizeReportRecord } from '../src/utils/reportRecord.js'
@@ -86,4 +87,26 @@ test('location integrity distinguishes missing, inside, and outside coordinates'
     longitude: PASIG_PUBLIC_MARKET_GEOFENCE.longitude,
   }).state, 'verified')
   assert.equal(assessMarketLocation({ latitude: 14.5995, longitude: 120.9842 }).state, 'outside')
+})
+
+test('GIS view uses the same Google Maps provider as the Consumer app', () => {
+  const result = assessMarketLocation({
+    latitude: PASIG_PUBLIC_MARKET_GEOFENCE.latitude,
+    longitude: PASIG_PUBLIC_MARKET_GEOFENCE.longitude,
+  })
+  const map = googleMapsView(result, PASIG_PUBLIC_MARKET_GEOFENCE, 'browser-restricted-test-key')
+
+  assert.equal(map.provider, 'google_maps')
+  assert.equal(map.api, 'maps_embed')
+  assert.equal(map.configured, true)
+  assert.match(map.embedUrl, /^https:\/\/www\.google\.com\/maps\/embed\/v1\/place\?/)
+  assert.match(map.openUrl, /^https:\/\/www\.google\.com\/maps\/search\//)
+  assert.equal(map.markerLabel, 'Submitted scan location')
+})
+
+test('GIS view keeps a navigable Google Maps link when the web embed key is absent', () => {
+  const map = googleMapsView(assessMarketLocation({ latitude: 0, longitude: 0 }))
+  assert.equal(map.configured, false)
+  assert.equal(map.embedUrl, '')
+  assert.match(map.openUrl, /query=14\.5586%2C121\.0841/)
 })

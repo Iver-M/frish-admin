@@ -5,6 +5,7 @@ import {
   FiCalendar,
   FiCheckCircle,
   FiClock,
+  FiExternalLink,
   FiFileText,
   FiImage,
   FiMapPin,
@@ -28,7 +29,7 @@ import {
 import { getReportCode } from '../../../utils/reportCode.js'
 import {
   assessMarketLocation,
-  locationPlotPosition,
+  googleMapsView,
   PASIG_PUBLIC_MARKET_GEOFENCE,
 } from '../../../utils/locationIntegrity.js'
 import {
@@ -446,7 +447,7 @@ function InspectionEvidence({ assessment }) {
 
 function LocationIntegrity({ location }) {
   const result = assessMarketLocation(location)
-  const position = locationPlotPosition(result)
+  const map = googleMapsView(result, PASIG_PUBLIC_MARKET_GEOFENCE, import.meta.env.VITE_GOOGLE_MAPS_WEB_API_KEY || '')
   const distance = result.distanceMeters === null
     ? 'No usable coordinates were submitted by the mobile app.'
     : `${Math.round(result.distanceMeters)} m from the configured market center`
@@ -463,11 +464,24 @@ function LocationIntegrity({ location }) {
       </dl>
       <small>This is a decision-support check, not proof by itself. Confirm the approved market boundary and mobile GPS accuracy before enforcement.</small>
     </div>
-    <div className="location-integrity__plot" role="img" aria-label={`Schematic location check: ${result.label}`}>
-      <span className="location-integrity__radius" />
-      <span className="location-integrity__market"><FiMapPin /><small>Market</small></span>
-      {position && <span className="location-integrity__scan" style={{ left: `${position.x}%`, top: `${position.y}%` }}><i /><small>Scan</small></span>}
-      {!position && <span className="location-integrity__missing">GPS unavailable</span>}
+    <div className="location-integrity__map">
+      <div className="location-integrity__map-heading">
+        <span><FiMapPin /> {map.markerLabel}</span>
+        <a href={map.openUrl} target="_blank" rel="noreferrer">Open map <FiExternalLink /></a>
+      </div>
+      {map.configured ? <iframe
+        title={`Google Maps location view for ${PASIG_PUBLIC_MARKET_GEOFENCE.name}`}
+        src={map.embedUrl}
+        loading="lazy"
+        allowFullScreen
+        referrerPolicy="no-referrer-when-downgrade"
+      /> : <div className="location-integrity__map-setup">
+        <FiMapPin />
+        <strong>Google Maps preview is ready to configure</strong>
+        <span>Add the web-restricted Maps Embed API key to display the interactive map here.</span>
+        <a className="btn btn-outline btn-sm" href={map.openUrl} target="_blank" rel="noreferrer">Open in Google Maps <FiExternalLink /></a>
+      </div>}
+      <span className="location-integrity__attribution">Google Maps Platform</span>
     </div>
   </section>
 }

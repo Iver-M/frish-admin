@@ -15,7 +15,7 @@ const ROUTE_ACCESS = {
   '/assessments': ['bfar_admin'],
   '/reports': ['bfar_admin', 'market_admin'],
   '/consumer-intake': ['bfar_admin'],
-  '/authority-cases': ['bfar_admin'],
+  '/authority-cases': ['bfar_admin', 'market_admin'],
   '/inspectors': ['bfar_admin'],
   '/vendors': ['market_admin'],
   '/audit-trail': ['bfar_admin'],
@@ -37,8 +37,8 @@ const BFAR_PAGE_HEADERS = {
   '/dashboard': ['Dashboard', 'Welcome back to FRISH Admin Portal'],
   '/assessments': ['Freshness Assessments', 'Review live scan results submitted by authorized inspectors'],
   '/reports': ['Report Management', 'Review and manage consumer and inspector submitted reports'],
-  '/consumer-intake': ['Consumer Intake', 'Review emulator-only Consumer concerns before explicit promotion'],
-  '/authority-cases': ['Authority Cases', 'Review promoted Consumer authority cases separately from legacy reports'],
+  '/consumer-intake': ['Report Management', 'Review Consumer concerns and explicitly accept valid submissions'],
+  '/authority-cases': ['Report Management', 'Track accepted Consumer cases through the shared Firebase workflow'],
   '/inspectors': ['Inspector Management', 'Create, view, and manage inspector account assignments'],
   '/vendors': ['Vendor Management', 'Create, view, and manage vendor records'],
   '/audit-trail': ['Audit Trail', 'Monitor system activities and user actions'],
@@ -67,7 +67,9 @@ export default function AdminLayout() {
 
   // Logged in, but this role isn't allowed on this route — send to Dashboard
   // rather than showing a broken/empty page.
-  const routeRoot = location.pathname.startsWith('/consumer-intake/')
+  const routeRoot = location.pathname.startsWith('/reports/')
+    ? '/reports'
+    : location.pathname.startsWith('/consumer-intake/')
     ? '/consumer-intake'
     : location.pathname.startsWith('/authority-cases/')
       ? '/authority-cases'

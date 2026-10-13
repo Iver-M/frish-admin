@@ -21,6 +21,11 @@ import {
   subscribeMarketRecords,
 } from '../../../services/firestoreService.js'
 import {
+  CONSUMER_FEEDBACK_RUNTIME_ENABLED,
+  consumerFeedbackErrorMessage,
+  listConsumerFeedback,
+} from '../../../services/consumerFeedbackBoundary.js'
+import {
   feedbackTimestampValue,
   formatFeedbackTimestamp,
   normalizeFeedbackRecord,
@@ -37,6 +42,8 @@ const FILTERS = [
 export default function Feedback() {
   const { user, isFirebaseEnabled } = useAuth()
   const [feedback, setFeedback] = useState(() => fallbackFeedback(isFirebaseEnabled))
+  const [consumerFeedback, setConsumerFeedback] = useState([])
+  const [consumerError, setConsumerError] = useState('')
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [viewingId, setViewingId] = useState('')
@@ -71,14 +78,39 @@ export default function Feedback() {
     )
   }, [isFirebaseEnabled, user])
 
+  useEffect(() => {
+    if (!isFirebaseEnabled || user?.role !== 'bfar_admin' || !CONSUMER_FEEDBACK_RUNTIME_ENABLED) {
+      setConsumerFeedback([])
+      setConsumerError('')
+      return undefined
+    }
+    let active = true
+    const load = async () => {
+      try {
+        const records = await listConsumerFeedback(50)
+        if (active) { setConsumerFeedback(records.map(normalizeFeedbackRecord)); setConsumerError('') }
+      } catch (loadError) {
+        if (active) setConsumerError(consumerFeedbackErrorMessage(loadError))
+      }
+    }
+    void load()
+    const interval = window.setInterval(load, 60_000)
+    return () => { active = false; window.clearInterval(interval) }
+  }, [isFirebaseEnabled, user])
+
+  const allFeedback = useMemo(
+    () => [...feedback, ...consumerFeedback].sort(newestFirst),
+    [consumerFeedback, feedback],
+  )
+
   const viewing = useMemo(
-    () => feedback.find((item) => item.id === viewingId) || null,
-    [feedback, viewingId],
+    () => allFeedback.find((item) => item.id === viewingId) || null,
+    [allFeedback, viewingId],
   )
 
   const filtered = useMemo(() => {
     const search = query.trim().toLowerCase()
-    return feedback.filter((item) => {
+    return allFeedback.filter((item) => {
       const searchable = [
         item.feedbackCode,
         item.user,
@@ -89,7 +121,7 @@ export default function Feedback() {
       return (!search || searchable.includes(search))
         && (statusFilter === 'all' || item.status === statusFilter)
     })
-  }, [feedback, query, statusFilter])
+  }, [allFeedback, query, statusFilter])
 
   function openFeedback(item) {
     setViewingId(item.id)
@@ -99,7 +131,7 @@ export default function Feedback() {
   }
 
   async function handleSaveReply() {
-    if (!viewing || !replyText.trim() || !isFirebaseEnabled) return
+    if (!viewing || viewing.readOnly || !replyText.trim() || !isFirebaseEnabled) return
     if (replyText.trim().length > 800) {
       setError('Keep the administrator response within 800 characters.')
       return
@@ -127,7 +159,7 @@ export default function Feedback() {
   }
 
   async function handleMarkResolved() {
-    if (!viewing || !isFirebaseEnabled || viewing.status === 'resolved') return false
+    if (!viewing || viewing.readOnly || !isFirebaseEnabled || viewing.status === 'resolved') return false
 
     setSaving(true)
     setError('')
@@ -162,7 +194,7 @@ export default function Feedback() {
         <div>
           <p className="workspace-kicker">USER EXPERIENCE</p>
           <h2>User Feedback</h2>
-          <p className="page-header-row__subtitle">Review ratings, comments, and concerns submitted through the FRISH Inspector app.</p>
+          <p className="page-header-row__subtitle">Review feedback submitted through the FRISH Inspector and Consumer apps. Consumer entries are privacy-safe, read-only inbox records.</p>
         </div>
         <span className={`feedback-source ${isFirebaseEnabled ? 'feedback-source--live' : ''}`}>
           <i /> {isFirebaseEnabled ? 'Live updates' : 'Demo records'}
@@ -178,6 +210,7 @@ export default function Feedback() {
       </div>
 
       {error && !viewing && <p className="feedback-alert feedback-alert--error" role="alert">{error}</p>}
+      {consumerError && <p className="feedback-alert feedback-alert--warning" role="status">{consumerError}</p>}
 
       <section className="feedback-board">
         <div className="feedback-board__heading">
@@ -197,9 +230,7 @@ export default function Feedback() {
         title={viewing?.subject || 'Feedback review'}
         size="lg"
         footer={viewing && <>
-          <button className="btn btn-outline" onClick={() => { setError(''); setResolveConfirmOpen(true) }} disabled={!isFirebaseEnabled || saving || viewing.status === 'resolved'}>
-            {viewing.status === 'resolved' ? 'Resolved' : 'Mark resolved'}
-          </button>
+          {!viewing.readOnly && <button className="btn btn-outline" onClick={() => { setError(''); setResolveConfirmOpen(true) }} disabled={!isFirebaseEnabled || saving || viewing.status === 'resolved'}>{viewing.status === 'resolved' ? 'Resolved' : 'Mark resolved'}</button>}
           <button className="btn btn-outline" onClick={closeFeedback} disabled={saving}>Close</button>
         </>}
       >
@@ -262,7 +293,7 @@ function FeedbackDetail({ item, replyText, onReplyChange, onSaveReply, saving, c
 
     {item.adminReply?.sentAt && <div className="feedback-saved-reply"><FiMessageSquare /><span><strong>Latest administrator response</strong><small>{item.adminReply.sentByName || 'BFAR-NCR Admin'} · {formatFeedbackTimestamp(item.adminReply.sentAt)}</small><p>{item.adminReply.message}</p></span></div>}
 
-    <label className="feedback-reply-field">
+    {item.readOnly ? <p className="feedback-delivery-note">Consumer identity is intentionally excluded. This controlled inbox is review-only; responses and status changes require a separate approved Consumer follow-up contract.</p> : <><label className="feedback-reply-field">
       <span>Administrator response</span>
       <textarea rows={5} maxLength={800} placeholder="Record the response or follow-up action…" value={replyText} onChange={(event) => onReplyChange(event.target.value)} disabled={!canPersist || saving || item.status === 'resolved'} />
       <small>{replyText.length}/800</small>
@@ -270,7 +301,7 @@ function FeedbackDetail({ item, replyText, onReplyChange, onSaveReply, saving, c
     <p className="feedback-delivery-note">This response is saved as an internal follow-up note. It is not sent to the Inspector app yet.</p>
     {error && <p className="feedback-alert feedback-alert--error" role="alert">{error}</p>}
     {notice && <p className="feedback-alert feedback-alert--success" role="status">{notice}</p>}
-    <button className="btn btn-primary" onClick={onSaveReply} disabled={!canPersist || saving || item.status === 'resolved' || !replyText.trim()}><FiMessageSquare /> {saving ? 'Saving…' : 'Save response'}</button>
+    <button className="btn btn-primary" onClick={onSaveReply} disabled={!canPersist || saving || item.status === 'resolved' || !replyText.trim()}><FiMessageSquare /> {saving ? 'Saving…' : 'Save response'}</button></>}
   </div>
 }
 

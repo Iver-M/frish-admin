@@ -10,29 +10,40 @@ import {
 const intakeSource = await readFile(new URL('../src/pages/admin/consumer-intake/ConsumerIntake.jsx', import.meta.url), 'utf8')
 const caseSource = await readFile(new URL('../src/pages/admin/authority-cases/AuthorityCases.jsx', import.meta.url), 'utf8')
 const layoutSource = await readFile(new URL('../src/layout/AdminLayout.jsx', import.meta.url), 'utf8')
+const reportsSource = await readFile(new URL('../src/pages/admin/reports/Reports.jsx', import.meta.url), 'utf8')
+const sidebarSource = await readFile(new URL('../src/components/Sidebar.jsx', import.meta.url), 'utf8')
 
 test('authority runtime is off without the explicit development emulator flag', () => {
   assert.equal(AUTHORITY_CASES_RUNTIME_ENABLED, false)
 })
 
-test('intake renders the emulator disclosure, prototype state, confirmation, and pending guard', () => {
-  assert.match(intakeSource, /Emulator prototype — not connected to production Firebase\./)
-  assert.match(intakeSource, /prototype_saved/)
+test('intake renders the shared-runtime disclosure, safe state, confirmation, and pending guard', () => {
+  assert.match(intakeSource, /Connected to the shared Consumer cloud-test intake\./)
+  assert.match(intakeSource, /Pending BFAR acceptance/)
   assert.match(intakeSource, /Accept as an authority case\?/)
   assert.match(intakeSource, /if \(promoting \|\| !concern\) return/)
   assert.doesNotMatch(intakeSource, /concern\.reporterEmail|concern\.ownerId|concern\.reporterName/)
 })
 
-test('Consumer Intake and Authority Cases routes are BFAR-only', () => {
+test('Consumer Intake is BFAR-only while forwarded Authority Cases are available to scoped LGU admins', () => {
   assert.match(layoutSource, /'\/consumer-intake': \['bfar_admin'\]/)
-  assert.match(layoutSource, /'\/authority-cases': \['bfar_admin'\]/)
+  assert.match(layoutSource, /'\/authority-cases': \['bfar_admin', 'market_admin'\]/)
+})
+
+test('Consumer and Inspector workflows share one visible Report Management module without merging storage', () => {
+  assert.match(sidebarSource, /label: 'Report Management'/)
+  assert.doesNotMatch(sidebarSource, /label: 'Consumer Reports'|label: 'Authority Cases'/)
+  assert.match(reportsSource, /label: isBfarAdmin \? 'Inspector Reports' : 'Inspector Escalations'/)
+  assert.match(reportsSource, /label: 'Consumer Intake'/)
+  assert.match(reportsSource, /label: 'Consumer Cases'/)
+  assert.match(reportsSource, /<ConsumerIntake embedded/)
+  assert.match(reportsSource, /<AuthorityCases embedded/)
 })
 
 test('general authority case view calls out privacy exclusions and status separation', () => {
-  assert.match(caseSource, /separate from legacy Inspector reports/)
+  assert.match(caseSource, /kept separate from Inspector reports/)
   assert.match(caseSource, /Reporter contacts are protected/)
   assert.match(caseSource, /LGU and Inspectors do not receive/)
-  assert.match(caseSource, /secure linked-evidence viewing requires its separate local emulator flag/)
   assert.match(caseSource, /no precise GPS, image data, Storage path/)
 })
 
@@ -53,9 +64,9 @@ test('intake explains protected contacts and unavailable linked evidence without
   assert.match(intakeSource, /secure evidence viewing is not yet enabled/i)
 })
 
-test('callable failures map to actionable authorization, validation, and emulator messages', () => {
+test('callable failures map to actionable authorization, validation, and runtime messages', () => {
   assert.match(authorityErrorMessage({ code: 'functions/permission-denied' }), /not authorized/)
   assert.match(authorityErrorMessage({ code: 'functions/not-found' }), /no longer exists/)
-  assert.match(authorityErrorMessage({ code: 'functions/unavailable' }), /emulators are unavailable/)
+  assert.match(authorityErrorMessage({ code: 'functions/unavailable' }), /emulators are unavailable|temporarily unavailable/)
   assert.equal(authorityErrorMessage({ code: 'functions/failed-precondition', message: 'Invalid concern.' }), 'Invalid concern.')
 })

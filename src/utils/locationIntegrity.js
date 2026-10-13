@@ -24,16 +24,23 @@ export function assessMarketLocation(location, market = PASIG_PUBLIC_MARKET_GEOF
   }
 }
 
-export function locationPlotPosition(result, market = PASIG_PUBLIC_MARKET_GEOFENCE) {
-  if (!result || result.state === 'missing') return null
-  const northMeters = (result.latitude - market.latitude) * 111_320
-  const eastMeters = (result.longitude - market.longitude)
-    * 111_320
-    * Math.cos((market.latitude * Math.PI) / 180)
-  const plotRadius = market.radiusMeters * 1.4
+export function googleMapsView(result, market = PASIG_PUBLIC_MARKET_GEOFENCE, apiKey = '') {
+  const hasSubmittedLocation = result?.state !== 'missing'
+    && Number.isFinite(result?.latitude)
+    && Number.isFinite(result?.longitude)
+  const markerLatitude = hasSubmittedLocation ? result.latitude : market.latitude
+  const markerLongitude = hasSubmittedLocation ? result.longitude : market.longitude
+  const coordinate = `${markerLatitude},${markerLongitude}`
+  const embedQuery = new URLSearchParams({ key: apiKey, q: coordinate, zoom: '17', maptype: 'roadmap' })
+  const openQuery = new URLSearchParams({ api: '1', query: coordinate })
+
   return {
-    x: clamp(50 + (eastMeters / plotRadius) * 44, 6, 94),
-    y: clamp(50 - (northMeters / plotRadius) * 44, 6, 94),
+    provider: 'google_maps',
+    api: 'maps_embed',
+    configured: Boolean(apiKey),
+    embedUrl: apiKey ? `https://www.google.com/maps/embed/v1/place?${embedQuery}` : '',
+    openUrl: `https://www.google.com/maps/search/?${openQuery}`,
+    markerLabel: hasSubmittedLocation ? 'Submitted scan location' : 'Pasig Public Market reference',
   }
 }
 
@@ -52,8 +59,4 @@ function haversineMeters(latitudeA, longitudeA, latitudeB, longitudeB) {
 function finiteCoordinate(value) {
   const number = Number(value)
   return Number.isFinite(number) ? number : null
-}
-
-function clamp(value, minimum, maximum) {
-  return Math.min(maximum, Math.max(minimum, value))
 }

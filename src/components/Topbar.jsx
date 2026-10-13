@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FiAlertTriangle, FiBell, FiCheckCircle, FiMenu, FiMessageSquare, FiSearch, FiUsers } from 'react-icons/fi'
+import { FiAlertTriangle, FiBell, FiBriefcase, FiCheckCircle, FiMenu, FiMessageSquare, FiSearch, FiUsers } from 'react-icons/fi'
 import { isFirebaseEnabled } from '../services/firebase.js'
 import { subscribeMarketRecords } from '../services/firestoreService.js'
+import { AUTHORITY_CASES_RUNTIME_ENABLED, subscribeAuthorityCases } from '../services/authorityCasesBoundary.js'
 import { getReportCode } from '../utils/reportCode.js'
 import { markNotificationRead, subscribeNotificationReadState } from '../utils/notificationReadState.js'
 import { normalizeFeedbackRecord } from '../utils/feedbackRecord.js'
@@ -24,6 +25,7 @@ export default function Topbar({ onMenuClick, user }) {
   const [reports, setReports] = useState([])
   const [scans, setScans] = useState([])
   const [feedback, setFeedback] = useState([])
+  const [authorityCases, setAuthorityCases] = useState([])
   const [readNotificationIds, setReadNotificationIds] = useState(new Set())
   const [globalQuery, setGlobalQuery] = useState('')
   const navigate = useNavigate()
@@ -34,6 +36,14 @@ export default function Topbar({ onMenuClick, user }) {
   useEffect(() => {
     if (!isFirebaseEnabled) return undefined
     return subscribeMarketRecords('reports', user, setReports, () => setReports([]))
+  }, [user])
+
+  useEffect(() => {
+    if (!isFirebaseEnabled || !AUTHORITY_CASES_RUNTIME_ENABLED) {
+      setAuthorityCases([])
+      return undefined
+    }
+    return subscribeAuthorityCases(setAuthorityCases, () => setAuthorityCases([]), user)
   }, [user])
 
   useEffect(() => {
@@ -126,9 +136,14 @@ export default function Topbar({ onMenuClick, user }) {
           icon: FiMessageSquare,
         }))
       : []
-    return [...reportNotifications, ...scanNotifications, ...feedbackNotifications]
+    const consumerCaseNotifications = authorityCases.flatMap((record) => {
+      if (user?.role === 'bfar_admin' && record.status === 'submitted') return [{ id: `consumer-case-${record.id}-submitted`, reportId: record.id, path: `/reports?view=consumer-cases&caseId=${encodeURIComponent(record.id)}`, title: 'Consumer authority case needs assignment', detail: `${record.title} — ${record.vendorOrStall || 'Vendor not recorded'}`, timestamp: record.updatedAt || record.createdAt, icon: FiBriefcase }]
+      if (user?.role === 'market_admin' && record.status === 'forwarded_lgu') return [{ id: `consumer-case-${record.id}-lgu`, reportId: record.id, path: `/reports?view=consumer-cases&caseId=${encodeURIComponent(record.id)}`, title: 'Consumer case forwarded by BFAR-NCR', detail: `${record.title} — review the endorsed case`, timestamp: record.updatedAt || record.createdAt, icon: FiBriefcase }]
+      return []
+    })
+    return [...reportNotifications, ...consumerCaseNotifications, ...scanNotifications, ...feedbackNotifications]
       .sort((a, b) => timestampValue(b.timestamp) - timestampValue(a.timestamp))
-  }, [feedback, reports, scans, user?.role])
+  }, [authorityCases, feedback, reports, scans, user?.role])
   const unreadNotifications = liveNotifications.filter((item) => !readNotificationIds.has(item.id))
   const panelNotifications = liveNotifications.slice(0, 4)
   const notificationCount = isFirebaseEnabled ? unreadNotifications.length : NOTIFICATIONS.length

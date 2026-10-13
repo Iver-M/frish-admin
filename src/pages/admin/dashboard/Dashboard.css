@@ -540,3 +540,10 @@
     padding-left: 0;
   }
 }
+.dashboard-panel--consumer { grid-column: 1 / -1; }
+.consumer-workflow-summary { display: grid; gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 16px; }
+.consumer-workflow-summary a { background: #f6f9fc; border: 1px solid #d8e6ef; border-radius: 10px; color: #315d76; display: grid; gap: 4px; padding: 14px; text-decoration: none; }
+.consumer-workflow-summary a:hover { background: #eef7fc; border-color: #9fc5dc; }
+.consumer-workflow-summary strong { color: #07537c; font-size: 22px; }
+.consumer-workflow-summary span { font-size: 12px; }
+@media (max-width: 760px) { .consumer-workflow-summary { grid-template-columns: 1fr 1fr; } }

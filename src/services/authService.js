@@ -10,7 +10,7 @@ import {
   updatePassword,
 } from 'firebase/auth'
 import { doc, getDoc } from 'firebase/firestore'
-import { auth, db, isAuthorityEmulatorEnabled, isFirebaseEnabled } from './firebase.js'
+import { auth, authorityRuntimeMode, db, isAuthorityEmulatorEnabled, isFirebaseEnabled } from './firebase.js'
 
 const AUTH_ERROR_MESSAGES = {
   'auth/invalid-credential': 'The email or password is incorrect. Check your details and try again.',
@@ -91,9 +91,9 @@ export async function signInAdminWithCredentials(email, password) {
 }
 
 export async function getAdminProfile(firebaseUser) {
-  // The authority emulator relies on freshly issued custom claims. Normal
-  // Firebase sessions continue to use the Firestore profile as the role source.
-  const token = await getIdTokenResult(firebaseUser, isAuthorityEmulatorEnabled)
+  // Consumer authority runtimes rely on freshly issued custom claims. Normal
+  // portal sessions continue to use the Firestore profile as the role source.
+  const token = await getIdTokenResult(firebaseUser, authorityRuntimeMode !== 'disabled')
   const provider = token.claims.firebase?.sign_in_provider
   if (!['google.com', 'password'].includes(provider)) {
     throw new Error('This sign-in method is not supported for administrator access.')

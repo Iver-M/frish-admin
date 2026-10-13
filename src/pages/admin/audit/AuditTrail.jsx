@@ -22,6 +22,7 @@ export default function AuditTrail() {
   const [feedback, setFeedback] = useState([])
   const [adminProfiles, setAdminProfiles] = useState([])
   const [inspectorProfiles, setInspectorProfiles] = useState([])
+  const [authorityEvents, setAuthorityEvents] = useState([])
   const [query, setQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [error, setError] = useState('')
@@ -34,7 +35,8 @@ export default function AuditTrail() {
     const unsubscribeFeedback = subscribeMarketRecords('feedback', user, setFeedback, (firebaseError) => setError(firebaseError.message || 'Unable to load feedback events.'))
     const unsubscribeAdmins = subscribeAdminProfiles(setAdminProfiles, (firebaseError) => setError(firebaseError.message || 'Unable to load administrator profiles.'))
     const unsubscribeInspectors = subscribeInspectorProfiles(setInspectorProfiles, (firebaseError) => setError(firebaseError.message || 'Unable to load inspector profiles.'))
-    return () => { unsubscribeLogs(); unsubscribeReports(); unsubscribeScans(); unsubscribeFeedback(); unsubscribeAdmins(); unsubscribeInspectors() }
+    const unsubscribeAuthority = subscribeMarketRecords('authorityCaseAudit', user, setAuthorityEvents, () => setAuthorityEvents([]))
+    return () => { unsubscribeLogs(); unsubscribeReports(); unsubscribeScans(); unsubscribeFeedback(); unsubscribeAdmins(); unsubscribeInspectors(); unsubscribeAuthority() }
   }, [isFirebaseEnabled, user])
 
   const logs = useMemo(() => {
@@ -71,8 +73,16 @@ export default function AuditTrail() {
       details: `${item.feedbackCode} — ${item.rating || 0}/5 — ${item.comment}`,
       category: 'User Feedback',
     }))
-    return [...reportEvents, ...scanEvents, ...feedbackEvents, ...auditEvents].sort((a, b) => timestampValue(b.timestamp) - timestampValue(a.timestamp))
-  }, [feedback, isFirebaseEnabled, reports, scans, storedLogs])
+    const consumerCaseEvents = authorityEvents.map((event) => ({
+      id: `authority-${event.id}`,
+      timestamp: event.createdAt,
+      admin: authorityActorLabel(event.actorRole),
+      action: authorityActionLabel(event.transition),
+      details: `${event.caseId || 'Consumer authority case'} — ${statusLabel(event.previousStatus)} to ${statusLabel(event.nextStatus)}`,
+      category: 'Consumer Authority Case',
+    }))
+    return [...reportEvents, ...scanEvents, ...feedbackEvents, ...consumerCaseEvents, ...auditEvents].sort((a, b) => timestampValue(b.timestamp) - timestampValue(a.timestamp))
+  }, [authorityEvents, feedback, isFirebaseEnabled, reports, scans, storedLogs])
 
   const liveUsers = useMemo(() => [...adminProfiles, ...inspectorProfiles], [adminProfiles, inspectorProfiles])
   const categories = useMemo(() => Array.from(new Set(logs.map((log) => log.category))).sort(), [logs])
@@ -111,3 +121,8 @@ function timestampValue(value) { return value?.toMillis?.() || (typeof value ===
 function toDate(value) { const timestamp = timestampValue(value); return timestamp ? new Date(timestamp) : null }
 function formatTimestamp(value) { const date = toDate(value); return date ? new Intl.DateTimeFormat('en-PH', { dateStyle: 'medium', timeStyle: 'short' }).format(date) : 'Just now' }
 function isActiveProfile(profile) { return String(profile.accountStatus || profile.status || 'active').toLowerCase() === 'active' }
+function statusLabel(value) { return String(value || 'unknown').replace(/_/g, ' ') }
+function authorityActorLabel(role) { return role === 'inspector' ? 'Assigned Inspector' : role === 'lgu' ? 'Pasig LGU Admin' : 'BFAR-NCR Admin' }
+function authorityActionLabel(transition) {
+  return ({ assign_inspector: 'Assigned Consumer case', start_investigation: 'Started Consumer case validation', forward_to_lgu: 'Forwarded Consumer case to LGU', close_no_violation: 'Closed Consumer case without violation', resolve: 'Resolved Consumer case' })[transition] || 'Updated Consumer authority case'
+}

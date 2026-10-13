@@ -19,6 +19,21 @@ export const isAuthorityEmulatorEnabled = Boolean(runtimeEnv.DEV
   && runtimeEnv.VITE_AUTHORITY_CASES_EMULATOR === 'true'
   && firebaseConfig.projectId === 'frish-app2026'
   && isFirebaseEnabled)
+export const isAuthorityCloudTestEnabled = Boolean(
+  runtimeEnv.VITE_CONSUMER_AUTHORITY_MODE === 'cloud_test'
+  && firebaseConfig.projectId === 'frish-app2026'
+  && isFirebaseEnabled,
+)
+export const isConsumerFeedbackOnlineTestEnabled = Boolean(
+  runtimeEnv.VITE_CONSUMER_FEEDBACK_MODE === 'online_test'
+  && firebaseConfig.projectId === 'frish-app2026'
+  && isFirebaseEnabled,
+)
+export const authorityRuntimeMode = isAuthorityEmulatorEnabled
+  ? 'emulator'
+  : isAuthorityCloudTestEnabled
+    ? 'cloud_test'
+    : 'disabled'
 
 const app = isFirebaseEnabled ? (getApps()[0] || initializeApp(firebaseConfig)) : null
 export const auth = app ? getAuth(app) : null

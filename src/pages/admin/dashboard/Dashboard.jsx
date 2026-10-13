@@ -16,6 +16,12 @@ import { getDashboardStats, getRecentAssessments, getRecentReports } from '../..
 import { getReports } from '../../../data/reports.js'
 import { useAuth } from '../../../context/AuthContext.jsx'
 import { subscribeInspectorProfiles, subscribeMarketRecords } from '../../../services/firestoreService.js'
+import {
+  AUTHORITY_CASES_RUNTIME_ENABLED,
+  authorityErrorMessage,
+  listPendingConsumerConcerns,
+  subscribeAuthorityCases,
+} from '../../../services/authorityCasesBoundary.js'
 import { getReportCode } from '../../../utils/reportCode.js'
 import { getAssessmentCode } from '../../../utils/scanRecord.js'
 import { scopeByMarket } from '../../../utils/scopeByMarket.js'
@@ -37,6 +43,8 @@ export default function Dashboard() {
   const [liveScans, setLiveScans] = useState([])
   const [liveReports, setLiveReports] = useState([])
   const [liveInspectors, setLiveInspectors] = useState([])
+  const [consumerConcerns, setConsumerConcerns] = useState([])
+  const [authorityCases, setAuthorityCases] = useState([])
   const [loading, setLoading] = useState({ reports: false, scans: false, inspectors: false })
   const [errors, setErrors] = useState({})
 
@@ -91,6 +99,31 @@ export default function Dashboard() {
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe())
   }, [isFirebaseEnabled, user])
 
+  useEffect(() => {
+    if (!isFirebaseEnabled || user?.role !== 'bfar_admin' || !AUTHORITY_CASES_RUNTIME_ENABLED) {
+      setConsumerConcerns([])
+      setAuthorityCases([])
+      return undefined
+    }
+    let active = true
+    const loadConcerns = async () => {
+      try {
+        const result = await listPendingConsumerConcerns({ pageSize: 50 })
+        if (active) { setConsumerConcerns(result.concerns || []); setErrors((current) => ({ ...current, consumer: '' })) }
+      } catch (error) {
+        if (active) setErrors((current) => ({ ...current, consumer: authorityErrorMessage(error) }))
+      }
+    }
+    void loadConcerns()
+    const interval = window.setInterval(loadConcerns, 30_000)
+    const unsubscribe = subscribeAuthorityCases(
+      setAuthorityCases,
+      (error) => setErrors((current) => ({ ...current, consumer: authorityErrorMessage(error) })),
+      user,
+    )
+    return () => { active = false; window.clearInterval(interval); unsubscribe() }
+  }, [isFirebaseEnabled, user])
+
   const dashboardData = useMemo(() => {
     if (!isFirebaseEnabled) return demoDashboardData(user, isMarketAdmin)
 
@@ -117,12 +150,12 @@ export default function Dashboard() {
       .sort((a, b) => timestampValue(b.createdAt) - timestampValue(a.createdAt))
     const reviewQueue = reports.filter(isBfarActionable)
     return {
-      stats: bfarStats(scans, reports, liveInspectors),
+      stats: bfarStats(scans, reports, liveInspectors, consumerConcerns, authorityCases),
       reports: reviewQueue.slice(0, 5),
       scans: scans.slice(0, 4),
       activity: buildActivity(scans, reports).slice(0, 5),
     }
-  }, [isFirebaseEnabled, isMarketAdmin, liveInspectors, liveReports, liveScans, user])
+  }, [authorityCases, consumerConcerns, isFirebaseEnabled, isMarketAdmin, liveInspectors, liveReports, liveScans, user])
 
   const isLoading = isFirebaseEnabled && Object.values(loading).some(Boolean)
   const errorMessages = Object.values(errors).filter(Boolean)
@@ -171,13 +204,15 @@ export default function Dashboard() {
             loading={{ scans: loading.scans, reports: loading.reports, activity: loading.scans || loading.reports }}
             errors={errors}
             isDemo={!isFirebaseEnabled}
+            consumerConcerns={consumerConcerns}
+            authorityCases={authorityCases}
           />
         )}
     </div>
   )
 }
 
-function BfarOverview({ scans, reports, activity, loading, errors, isDemo }) {
+function BfarOverview({ scans, reports, activity, loading, errors, isDemo, consumerConcerns, authorityCases }) {
   return (
     <>
       <div className="dashboard__split">
@@ -206,9 +241,24 @@ function BfarOverview({ scans, reports, activity, loading, errors, isDemo }) {
           )}
         </section>
       </div>
+      {AUTHORITY_CASES_RUNTIME_ENABLED && <ConsumerWorkflowPanel concerns={consumerConcerns} cases={authorityCases} error={errors.consumer} />}
       <ReportsPanel reports={reports} loading={loading.reports} error={errors.reports} />
     </>
   )
+}
+
+function ConsumerWorkflowPanel({ concerns, cases, error }) {
+  const assigned = cases.filter((item) => ['assigned', 'in_progress'].includes(item.status)).length
+  const lgu = cases.filter((item) => item.status === 'forwarded_lgu').length
+  return <section className="dashboard-panel dashboard-panel--consumer">
+    <PanelHeading title="Consumer report workflow" subtitle="BFAR intake, Inspector validation, and LGU endorsement" to="/reports?view=consumer-intake" />
+    {error ? <ErrorPanel message={error} /> : <div className="consumer-workflow-summary">
+      <Link to="/reports?view=consumer-intake"><strong>{concerns.length}</strong><span>Awaiting BFAR review</span></Link>
+      <Link to="/reports?view=consumer-cases"><strong>{assigned}</strong><span>With Inspector validation</span></Link>
+      <Link to="/reports?view=consumer-cases"><strong>{lgu}</strong><span>Forwarded to Pasig LGU</span></Link>
+      <Link to="/reports?view=consumer-cases"><strong>{cases.length}</strong><span>Total authority cases</span></Link>
+    </div>}
+  </section>
 }
 
 function MarketOverview({ reports, loading, error }) {
@@ -338,9 +388,11 @@ function demoDashboardData(user, isMarketAdmin) {
   return { stats: getDashboardStats(), scans: assessments, reports, activity: DEMO_ACTIVITY }
 }
 
-function bfarStats(scans, reports, inspectors) {
+function bfarStats(scans, reports, inspectors, consumerConcerns = [], authorityCases = []) {
   const activeInspectors = inspectors.filter((item) => normalizeAccountStatus(item) === 'active').length
   const reviewQueue = reports.filter((item) => ['submitted', 'under-review', 'needs-revision'].includes(item.status)).length
+    + consumerConcerns.length
+    + authorityCases.filter((item) => item.status === 'submitted').length
   const classifiedScans = scans.filter((item) => item.status !== 'unknown')
   const freshScans = classifiedScans.filter((item) => item.status === 'fresh').length
   const passRate = classifiedScans.length ? `${Math.round((freshScans / classifiedScans.length) * 100)}%` : '—'

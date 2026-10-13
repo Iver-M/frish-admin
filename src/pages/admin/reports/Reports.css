@@ -23,6 +23,11 @@
 }
 
 .reports-page { width: 100%; }
+.report-module-tabs { align-items: center; background: #fff; border: 1px solid #cfe0ec; border-radius: 12px; display: flex; gap: 6px; overflow-x: auto; padding: 6px; }
+.report-module-tab { align-items: center; background: transparent; border: 0; border-radius: 8px; color: #557184; cursor: pointer; display: inline-flex; flex: 0 0 auto; font: inherit; font-size: 13px; font-weight: 700; gap: 7px; min-height: 38px; padding: 8px 14px; }
+.report-module-tab:hover { background: #eef5fa; color: #07537c; }
+.report-module-tab--active { background: #07537c; color: #fff; }
+.report-module-tab--active:hover { background: #06486c; color: #fff; }
 .reports-banner-actions { display: flex; gap: 10px; }
 .reports-page__header { align-items: flex-end; }
 .reports-page__header-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }

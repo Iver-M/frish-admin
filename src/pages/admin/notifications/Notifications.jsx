@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { FiAlertCircle, FiAlertTriangle, FiBell, FiCheckCircle, FiFileText, FiMessageSquare } from 'react-icons/fi'
+import { FiAlertCircle, FiAlertTriangle, FiBell, FiBriefcase, FiCheckCircle, FiFileText, FiMessageSquare } from 'react-icons/fi'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../../context/AuthContext.jsx'
 import { subscribeMarketRecords } from '../../../services/firestoreService.js'
+import { AUTHORITY_CASES_RUNTIME_ENABLED, authorityErrorMessage, subscribeAuthorityCases } from '../../../services/authorityCasesBoundary.js'
 import { getReportCode } from '../../../utils/reportCode.js'
 import { markNotificationRead, markNotificationsRead, subscribeNotificationReadState } from '../../../utils/notificationReadState.js'
 import { normalizeFeedbackRecord } from '../../../utils/feedbackRecord.js'
@@ -21,12 +22,25 @@ export default function Notifications() {
   const [reports, setReports] = useState([])
   const [scans, setScans] = useState([])
   const [feedback, setFeedback] = useState([])
+  const [authorityCases, setAuthorityCases] = useState([])
   const [readNotificationIds, setReadNotificationIds] = useState(new Set())
   const [error, setError] = useState('')
 
   useEffect(() => {
     if (!isFirebaseEnabled) return undefined
     return subscribeMarketRecords('reports', user, setReports, (firebaseError) => setError(firebaseError.message || 'Unable to load live notifications.'))
+  }, [isFirebaseEnabled, user])
+
+  useEffect(() => {
+    if (!isFirebaseEnabled || !AUTHORITY_CASES_RUNTIME_ENABLED) {
+      setAuthorityCases([])
+      return undefined
+    }
+    return subscribeAuthorityCases(
+      setAuthorityCases,
+      (firebaseError) => setError(authorityErrorMessage(firebaseError)),
+      user,
+    )
   }, [isFirebaseEnabled, user])
 
   useEffect(() => {
@@ -125,14 +139,20 @@ export default function Notifications() {
           path: '/feedback',
         }))
       : []
-    return [...reportNotifications, ...scanNotifications, ...feedbackNotifications]
+    const consumerCaseNotifications = authorityCases.flatMap((record) => {
+      if (user?.role === 'bfar_admin' && record.status === 'submitted') return [{ id: `consumer-case-${record.id}-submitted`, title: 'Consumer concern accepted for review', detail: `${record.title} — assign an Inspector for validation`, createdAt: record.updatedAt || record.createdAt, icon: FiBriefcase, kind: 'alert', path: `/reports?view=consumer-cases&caseId=${encodeURIComponent(record.id)}` }]
+      if (user?.role === 'bfar_admin' && record.status === 'in_progress') return [{ id: `consumer-case-${record.id}-progress`, title: 'Consumer case validation in progress', detail: `${record.assignedInspectorName || 'Assigned Inspector'} is validating ${record.title}`, createdAt: record.updatedAt || record.createdAt, icon: FiBriefcase, kind: 'info', path: `/reports?view=consumer-cases&caseId=${encodeURIComponent(record.id)}` }]
+      if (user?.role === 'market_admin' && record.status === 'forwarded_lgu') return [{ id: `consumer-case-${record.id}-lgu`, title: 'Consumer case forwarded by BFAR-NCR', detail: `${record.title} — ${record.vendorOrStall || 'Vendor not recorded'}`, createdAt: record.updatedAt || record.createdAt, icon: FiBriefcase, kind: 'warning', path: `/reports?view=consumer-cases&caseId=${encodeURIComponent(record.id)}` }]
+      return []
+    })
+    return [...reportNotifications, ...consumerCaseNotifications, ...scanNotifications, ...feedbackNotifications]
       .sort((a, b) => timestampValue(b.createdAt) - timestampValue(a.createdAt))
-  }, [feedback, isFirebaseEnabled, reports, scans, user?.role])
+  }, [authorityCases, feedback, isFirebaseEnabled, reports, scans, user?.role])
 
   const unreadCount = notifications.filter((item) => !readNotificationIds.has(item.id)).length
   const headerCopy = user?.role === 'market_admin'
     ? 'Cases newly forwarded by BFAR-NCR appear here automatically.'
-    : 'Live field submissions, freshness concerns, and resolved LGU cases appear here automatically.'
+    : 'Live Inspector submissions, Consumer authority cases, freshness concerns, and LGU outcomes appear here automatically.'
 
   function markAllRead() {
     markNotificationsRead(user, notifications.map((item) => item.id))

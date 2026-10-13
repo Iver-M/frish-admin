@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { FiDownload, FiRotateCcw } from 'react-icons/fi'
+import { FiBriefcase, FiDownload, FiFileText, FiInbox, FiRotateCcw } from 'react-icons/fi'
 import SearchBar from '../../../components/SearchBar.jsx'
 import StatusBadge from '../../../components/StatusBadge.jsx'
 import { getReports } from '../../../data/reports.js'
@@ -9,6 +9,9 @@ import { BfarBannerAction } from '../../../layout/AdminLayout.jsx'
 import { subscribeInspectorProfiles, subscribeMarketRecords } from '../../../services/firestoreService.js'
 import { getReportCode } from '../../../utils/reportCode.js'
 import { isReportAssignable, normalizeReportRecord } from '../../../utils/reportRecord.js'
+import { AUTHORITY_CASES_RUNTIME_ENABLED } from '../../../services/authorityCasesBoundary.js'
+import ConsumerIntake from '../consumer-intake/ConsumerIntake.jsx'
+import AuthorityCases from '../authority-cases/AuthorityCases.jsx'
 import './Reports.css'
 
 const LIVE_STATUSES = ['submitted', 'under-review', 'needs-revision', 'assigned', 'in progress', 'forwarded-lgu', 'under-lgu-action', 'resolved']
@@ -29,6 +32,14 @@ export default function Reports() {
   const [query, setQuery] = useState(() => searchParams.get('search') || '')
   const [statusFilter, setStatusFilter] = useState('all')
   const [error, setError] = useState('')
+  const requestedView = searchParams.get('view')
+  const availableViews = useMemo(() => {
+    const views = [{ value: 'inspector', label: isBfarAdmin ? 'Inspector Reports' : 'Inspector Escalations', icon: FiFileText }]
+    if (AUTHORITY_CASES_RUNTIME_ENABLED && isBfarAdmin) views.push({ value: 'consumer-intake', label: 'Consumer Intake', icon: FiInbox })
+    if (AUTHORITY_CASES_RUNTIME_ENABLED) views.push({ value: 'consumer-cases', label: 'Consumer Cases', icon: FiBriefcase })
+    return views
+  }, [isBfarAdmin])
+  const activeView = availableViews.some(({ value }) => value === requestedView) ? requestedView : 'inspector'
 
   useEffect(() => {
     setQuery(searchParams.get('search') || '')
@@ -92,52 +103,87 @@ export default function Reports() {
     downloadCsv(`frish-reports-${new Date().toISOString().slice(0, 10)}.csv`, [headers, ...rows])
   }
 
+  function changeView(view) {
+    navigate(`/reports?view=${view}`)
+  }
+
+  const isInspectorView = activeView === 'inspector'
+  const viewCopy = activeView === 'consumer-intake'
+    ? {
+        kicker: 'CONSUMER INTAKE',
+        title: 'Review public concerns',
+        subtitle: 'Screen privacy-safe Consumer concerns and explicitly accept valid submissions into the authority workflow.',
+      }
+    : activeView === 'consumer-cases'
+      ? {
+          kicker: isBfarAdmin ? 'CONSUMER CASE MANAGEMENT' : 'LGU CONSUMER CASES',
+          title: isBfarAdmin ? 'Accepted Consumer cases' : 'Consumer cases forwarded by BFAR-NCR',
+          subtitle: isBfarAdmin
+            ? 'Track concerns accepted by BFAR through Inspector validation and LGU resolution.'
+            : 'Review Consumer-originated cases that BFAR-NCR formally forwarded to Pasig Public Market.',
+        }
+      : {
+          kicker: isBfarAdmin ? 'INSPECTOR REPORTS' : 'LGU CASE MANAGEMENT',
+          title: isBfarAdmin ? 'BFAR report review' : 'Inspector reports forwarded by BFAR-NCR',
+          subtitle: isBfarAdmin
+            ? 'Review reports submitted directly by authorized Inspectors and manage the official escalation workflow.'
+            : 'Review Inspector-originated cases formally escalated to Pasig Public Market and return the LGU decision to BFAR-NCR.',
+        }
+
   return (
     <div className={`page reports-page ${!isBfarAdmin ? 'market-workspace reports-page--market' : ''}`}>
       {isBfarAdmin && (
         <BfarBannerAction>
           <div className="reports-banner-actions">
-            <button className="btn btn-outline" onClick={handleExport} disabled={filteredReports.length === 0}><FiDownload size={15} /> Export records</button>
-            <button className="btn btn-primary" onClick={() => setStatusFilter('submitted')}>Review submitted reports</button>
+            {isInspectorView && <button className="btn btn-outline" onClick={handleExport} disabled={filteredReports.length === 0}><FiDownload size={15} /> Export records</button>}
+            {isInspectorView && <button className="btn btn-primary" onClick={() => setStatusFilter('submitted')}>Review submitted reports</button>}
           </div>
         </BfarBannerAction>
       )}
 
       <div className="page-header-row reports-page__header">
         <div>
-          <p className="workspace-kicker">{isBfarAdmin ? 'REPORT MANAGEMENT' : 'LGU CASE MANAGEMENT'}</p>
-          <h2>{isBfarAdmin ? 'BFAR report review' : 'Reports forwarded by BFAR-NCR'}</h2>
-          <p className="page-header-row__subtitle">
-            {isBfarAdmin
-              ? 'Review existing inspector submissions and track the live workflow. Prototype consumer concerns are not authority cases and do not enter this queue.'
-              : 'Review only the cases formally escalated to Pasig Public Market and return the LGU decision to BFAR-NCR.'}
-          </p>
+          <p className="workspace-kicker">{viewCopy.kicker}</p>
+          <h2>{viewCopy.title}</h2>
+          <p className="page-header-row__subtitle">{viewCopy.subtitle}</p>
         </div>
         <div className="reports-page__header-actions">
           {isFirebaseEnabled && <span className="reports-live-indicator"><i /> Live Firebase data</span>}
-          {!isBfarAdmin && <button className="btn btn-outline btn-sm" onClick={handleExport} disabled={filteredReports.length === 0}><FiDownload size={14} /> Export cases</button>}
+          {!isBfarAdmin && isInspectorView && <button className="btn btn-outline btn-sm" onClick={handleExport} disabled={filteredReports.length === 0}><FiDownload size={14} /> Export cases</button>}
         </div>
       </div>
 
-      <div className="toolbar workspace-toolbar reports-page__toolbar">
-        <SearchBar value={query} onChange={setQuery} placeholder={isBfarAdmin ? 'Search code, vendor, market, species, or inspector...' : 'Search report code, vendor, species, or inspector...'} />
-        <select className="select-input" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter by report status">
-          {filters.map((filter) => <option key={filter.value} value={filter.value}>{filter.label}</option>)}
-        </select>
-        {(query || statusFilter !== 'all') && (
-          <button className="btn btn-outline btn-sm" onClick={() => { setQuery(''); setStatusFilter('all') }}>
-            <FiRotateCcw size={14} /> Clear
+      <nav className="report-module-tabs" aria-label="Report management views">
+        {availableViews.map(({ value, label, icon: Icon }) => (
+          <button key={value} type="button" className={activeView === value ? 'report-module-tab report-module-tab--active' : 'report-module-tab'} onClick={() => changeView(value)} aria-current={activeView === value ? 'page' : undefined}>
+            <Icon size={16} /> {label}
           </button>
-        )}
-      </div>
+        ))}
+      </nav>
 
-      {error && <p className="reports-error" role="alert">{error}</p>}
-      <ReportBoard
-        reports={filteredReports}
-        isLive={isFirebaseEnabled}
-        isBfarAdmin={isBfarAdmin}
-        onOpen={(report) => navigate(`/reports/${report.id}`)}
-      />
+      {isInspectorView && <>
+        <div className="toolbar workspace-toolbar reports-page__toolbar">
+          <SearchBar value={query} onChange={setQuery} placeholder={isBfarAdmin ? 'Search code, vendor, market, species, or inspector...' : 'Search report code, vendor, species, or inspector...'} />
+          <select className="select-input" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter by report status">
+            {filters.map((filter) => <option key={filter.value} value={filter.value}>{filter.label}</option>)}
+          </select>
+          {(query || statusFilter !== 'all') && (
+            <button className="btn btn-outline btn-sm" onClick={() => { setQuery(''); setStatusFilter('all') }}>
+              <FiRotateCcw size={14} /> Clear
+            </button>
+          )}
+        </div>
+
+        {error && <p className="reports-error" role="alert">{error}</p>}
+        <ReportBoard
+          reports={filteredReports}
+          isLive={isFirebaseEnabled}
+          isBfarAdmin={isBfarAdmin}
+          onOpen={(report) => navigate(`/reports/${report.id}`)}
+        />
+      </>}
+      {activeView === 'consumer-intake' && <ConsumerIntake embedded selectedReportId={searchParams.get('reportId') || ''} />}
+      {activeView === 'consumer-cases' && <AuthorityCases embedded selectedCaseId={searchParams.get('caseId') || ''} />}
     </div>
   )
 }
@@ -148,7 +194,7 @@ function ReportBoard({ reports, isLive, isBfarAdmin, onOpen }) {
       <div className="bfar-report-board__heading">
         <div>
           <h3>{isBfarAdmin ? (isLive ? 'Submitted report queue' : 'Report review queue') : 'Escalated case queue'}</h3>
-          <p>{isBfarAdmin ? (isLive ? 'Inspector reports are reviewed directly. Consumer prototype concerns remain outside this queue until trusted backend promotion is implemented.' : 'Sample records are shown until Firebase data is enabled.') : 'Awaiting-action cases require an LGU decision. Resolved cases remain available as read-only records.'}</p>
+          <p>{isBfarAdmin ? (isLive ? 'Inspector reports are reviewed directly. Use Consumer Intake for public concerns that require explicit BFAR acceptance.' : 'Sample records are shown until Firebase data is enabled.') : 'Awaiting-action cases require an LGU decision. Resolved cases remain available as read-only records.'}</p>
         </div>
         <span>{reports.length} reports</span>
       </div>
