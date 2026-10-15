@@ -1,11 +1,22 @@
 import { collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, where } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
-import { auth, authorityRuntimeMode, db, functions } from './firebase.js'
+import { auth, authorityRuntimeMode, consumerRuntime, db, functions, getAuthorityAppCheckToken } from './firebase.js'
+import { authorityFailureMessage } from './consumerAuthorityPolicy.js'
+import { CLOUD_TRANSITION_ENDPOINT, createAuthorityTransitionClient } from './authorityTransitionClient.js'
+import { createConsumerIntakeClient } from './authorityIntakeClient.js'
 
 export const AUTHORITY_CASES_COLLECTION = 'authorityCases'
 export const AUTHORITY_CASES_RUNTIME_MODE = authorityRuntimeMode
 export const AUTHORITY_CASES_RUNTIME_ENABLED = authorityRuntimeMode !== 'disabled'
 export const AUTHORITY_CASES_IS_CLOUD = authorityRuntimeMode === 'cloud_test'
+export const AUTHORITY_RUNTIME_MESSAGE = consumerRuntime.message
+const runtimeEnv = import.meta.env || {}
+export const transitionAuthorityCase = createAuthorityTransitionClient({
+  endpoint: runtimeEnv.VITE_AUTHORITY_TRANSITION_ENDPOINT || (AUTHORITY_CASES_IS_CLOUD ? CLOUD_TRANSITION_ENDPOINT : 'http://127.0.0.1:5001/frish-app2026/asia-southeast1/transitionAuthorityCase'),
+  mode: authorityRuntimeMode,
+  getAuthToken: async () => auth?.currentUser?.getIdToken(true),
+  getAppCheckToken: getAuthorityAppCheckToken,
+})
 
 const AUTHORITY_CASE_VIEW_FIELDS = Object.freeze([
   'id', 'schemaVersion', 'caseId', 'sourceConcernReportId', 'sourceScanId',
@@ -36,25 +47,16 @@ async function call(name, data = {}) {
   requireAuthorityCasesRuntime()
   // Refresh the token so newly issued BFAR cloud-test claims are used by the
   // callable immediately instead of waiting for Firebase Auth's token cache.
-  await auth?.currentUser?.getIdToken(true)
+  if (!auth?.currentUser) throw Object.assign(new Error('Sign in again.'), { code: 'unauthenticated' })
+  await auth.currentUser.getIdToken(true)
   return (await httpsCallable(functions, name)(data)).data
 }
 
-export function listPendingConsumerConcerns(options = {}) {
-  return call('listPendingConsumerConcerns', options)
-}
-
-export function getPendingConsumerConcern(reportId) {
-  return call('getPendingConsumerConcern', { reportId })
-}
-
-export function promoteConsumerConcern(reportId, intake = {}) {
-  return call('promoteConsumerConcern', { reportId, ...intake })
-}
-
-export function rejectConsumerConcern(reportId, internalReason) {
-  return call('rejectConsumerConcern', { reportId, internalReason })
-}
+const intakeClient = createConsumerIntakeClient(call)
+export const listPendingConsumerConcerns = intakeClient.list
+export const getPendingConsumerConcern = intakeClient.detail
+export const promoteConsumerConcern = intakeClient.accept
+export const rejectConsumerConcern = intakeClient.reject
 
 export async function listAuthorityCases() {
   requireAuthorityCasesRuntime()
@@ -92,16 +94,7 @@ export function subscribeAuthorityCase(caseId, onData, onError = () => {}) {
 }
 
 export function authorityErrorMessage(error) {
-  const code = String(error?.code || '')
-  if (code.includes('permission-denied') || code.includes('unauthenticated')) return AUTHORITY_CASES_IS_CLOUD
-    ? 'Your Firebase account is missing the active BFAR cloud-test claims required for Consumer Intake. Ask the Firebase project owner to provision the BFAR claims, then sign out and sign in again.'
-    : 'Your account is not authorized for BFAR Consumer Intake.'
-  if (code.includes('not-found')) return 'This Consumer concern no longer exists.'
-  if (code.includes('invalid-argument') || code.includes('failed-precondition')) return error?.message || 'This concern is not eligible for promotion.'
-  if (code.includes('deadline-exceeded') || code.includes('unavailable') || code.includes('internal')) return AUTHORITY_CASES_IS_CLOUD
-    ? 'The Consumer authority service is temporarily unavailable. Check the connection and retry.'
-    : 'The Firebase emulators are unavailable. Check the local emulator suite and retry.'
-  return error?.message || 'The Consumer authority request failed. Please retry.'
+  return authorityFailureMessage(error)
 }
 
 function timestampValue(value) {

@@ -9,7 +9,6 @@ import { BfarBannerAction } from '../../../layout/AdminLayout.jsx'
 import { subscribeInspectorProfiles, subscribeMarketRecords } from '../../../services/firestoreService.js'
 import { getReportCode } from '../../../utils/reportCode.js'
 import { isReportAssignable, normalizeReportRecord } from '../../../utils/reportRecord.js'
-import { AUTHORITY_CASES_RUNTIME_ENABLED } from '../../../services/authorityCasesBoundary.js'
 import ConsumerIntake from '../consumer-intake/ConsumerIntake.jsx'
 import AuthorityCases from '../authority-cases/AuthorityCases.jsx'
 import './Reports.css'
@@ -35,8 +34,8 @@ export default function Reports() {
   const requestedView = searchParams.get('view')
   const availableViews = useMemo(() => {
     const views = [{ value: 'inspector', label: isBfarAdmin ? 'Inspector Reports' : 'Inspector Escalations', icon: FiFileText }]
-    if (AUTHORITY_CASES_RUNTIME_ENABLED && isBfarAdmin) views.push({ value: 'consumer-intake', label: 'Consumer Intake', icon: FiInbox })
-    if (AUTHORITY_CASES_RUNTIME_ENABLED) views.push({ value: 'consumer-cases', label: 'Consumer Cases', icon: FiBriefcase })
+    if (isBfarAdmin) views.push({ value: 'consumer-intake', label: 'Consumer Intake', icon: FiInbox })
+    views.push({ value: 'consumer-cases', label: 'Consumer Cases', icon: FiBriefcase })
     return views
   }, [isBfarAdmin])
   const activeView = availableViews.some(({ value }) => value === requestedView) ? requestedView : 'inspector'
@@ -148,7 +147,7 @@ export default function Reports() {
           <p className="page-header-row__subtitle">{viewCopy.subtitle}</p>
         </div>
         <div className="reports-page__header-actions">
-          {isFirebaseEnabled && <span className="reports-live-indicator"><i /> Live Firebase data</span>}
+          {isFirebaseEnabled && isInspectorView && <span className="reports-live-indicator"><i /> Live Firebase data</span>}
           {!isBfarAdmin && isInspectorView && <button className="btn btn-outline btn-sm" onClick={handleExport} disabled={filteredReports.length === 0}><FiDownload size={14} /> Export cases</button>}
         </div>
       </div>

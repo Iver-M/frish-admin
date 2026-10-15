@@ -18,8 +18,8 @@ test('authority runtime is off without the explicit development emulator flag', 
 })
 
 test('intake renders the shared-runtime disclosure, safe state, confirmation, and pending guard', () => {
-  assert.match(intakeSource, /Connected to the shared Consumer cloud-test intake\./)
-  assert.match(intakeSource, /Pending BFAR acceptance/)
+  assert.match(intakeSource, /Configured for the shared Consumer cloud-test intake\./)
+  assert.match(intakeSource, /Saved Consumer concern/)
   assert.match(intakeSource, /Accept as an authority case\?/)
   assert.match(intakeSource, /if \(promoting \|\| !concern\) return/)
   assert.doesNotMatch(intakeSource, /concern\.reporterEmail|concern\.ownerId|concern\.reporterName/)
@@ -65,8 +65,10 @@ test('intake explains protected contacts and unavailable linked evidence without
 })
 
 test('callable failures map to actionable authorization, validation, and runtime messages', () => {
-  assert.match(authorityErrorMessage({ code: 'functions/permission-denied' }), /not authorized/)
-  assert.match(authorityErrorMessage({ code: 'functions/not-found' }), /no longer exists/)
-  assert.match(authorityErrorMessage({ code: 'functions/unavailable' }), /emulators are unavailable|temporarily unavailable/)
-  assert.equal(authorityErrorMessage({ code: 'functions/failed-precondition', message: 'Invalid concern.' }), 'Invalid concern.')
+  assert.match(authorityErrorMessage({ code: 'functions/permission-denied' }), /access was denied/)
+  assert.match(authorityErrorMessage({ code: 'functions/not-found', operation: 'intake-detail' }), /no longer exists/)
+  assert.match(authorityErrorMessage({ code: 'functions/not-found' }), /endpoint was not found/)
+  assert.match(authorityErrorMessage({ code: 'functions/unavailable' }), /service is unavailable/)
+  assert.match(authorityErrorMessage({ code: 'functions/failed-precondition', message: 'Private backend detail.' }), /environment or current record/)
+  assert.doesNotMatch(authorityErrorMessage({ code: 'functions/failed-precondition', message: 'Private backend detail.' }), /Private backend detail/)
 })

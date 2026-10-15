@@ -3,6 +3,8 @@ import { connectAuthEmulator, getAuth } from 'firebase/auth'
 import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore'
 import { connectFunctionsEmulator, getFunctions } from 'firebase/functions'
 import { connectStorageEmulator, getStorage } from 'firebase/storage'
+import { getToken, initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check'
+import { evaluateConsumerRuntime } from './consumerAuthorityPolicy.js'
 
 const runtimeEnv = import.meta.env || {}
 const firebaseConfig = {
@@ -15,15 +17,9 @@ const firebaseConfig = {
 }
 
 export const isFirebaseEnabled = runtimeEnv.VITE_USE_FIREBASE === 'true' && Boolean(firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.appId)
-export const isAuthorityEmulatorEnabled = Boolean(runtimeEnv.DEV
-  && runtimeEnv.VITE_AUTHORITY_CASES_EMULATOR === 'true'
-  && firebaseConfig.projectId === 'frish-app2026'
-  && isFirebaseEnabled)
-export const isAuthorityCloudTestEnabled = Boolean(
-  runtimeEnv.VITE_CONSUMER_AUTHORITY_MODE === 'cloud_test'
-  && firebaseConfig.projectId === 'frish-app2026'
-  && isFirebaseEnabled,
-)
+export const consumerRuntime = evaluateConsumerRuntime(runtimeEnv)
+export const isAuthorityEmulatorEnabled = consumerRuntime.mode === 'emulator'
+export const isAuthorityCloudTestEnabled = consumerRuntime.mode === 'cloud_test'
 export const isConsumerFeedbackOnlineTestEnabled = Boolean(
   runtimeEnv.VITE_CONSUMER_FEEDBACK_MODE === 'online_test'
   && firebaseConfig.projectId === 'frish-app2026'
@@ -40,6 +36,15 @@ export const auth = app ? getAuth(app) : null
 export const db = app ? getFirestore(app) : null
 export const storage = app ? getStorage(app) : null
 export const functions = app ? getFunctions(app, 'asia-southeast1') : null
+// This explicit opt-in uses a real configured provider. No debug token,
+// synthetic credential, or automatic claim/account provisioning is supplied.
+let authorityAppCheck = null
+export async function getAuthorityAppCheckToken() {
+  if (!app || !isAuthorityCloudTestEnabled || !runtimeEnv.VITE_AUTHORITY_APP_CHECK_SITE_KEY || typeof window === 'undefined') return null
+  // A bad optional App Check configuration must not prevent Inspector login.
+  authorityAppCheck ||= initializeAppCheck(app, { provider: new ReCaptchaV3Provider(runtimeEnv.VITE_AUTHORITY_APP_CHECK_SITE_KEY), isTokenAutoRefreshEnabled: true })
+  return (await getToken(authorityAppCheck, false)).token
+}
 
 if (isAuthorityEmulatorEnabled && !globalThis.__FRISH_AUTHORITY_EMULATORS_CONNECTED__) {
   connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true })

@@ -11,6 +11,7 @@ import {
 } from 'firebase/auth'
 import { doc, getDoc } from 'firebase/firestore'
 import { auth, authorityRuntimeMode, db, isAuthorityEmulatorEnabled, isFirebaseEnabled } from './firebase.js'
+import { consumerPermissions } from './consumerAuthorityPolicy.js'
 
 const AUTH_ERROR_MESSAGES = {
   'auth/invalid-credential': 'The email or password is incorrect. Check your details and try again.',
@@ -141,6 +142,7 @@ export async function getAdminProfile(firebaseUser) {
     createdAt: profile.createdAt || firebaseUser.metadata.creationTime || null,
     lastLoginAt: firebaseUser.metadata.lastSignInTime || null,
     authProvider: provider,
+    consumerPermissions: consumerPermissions(token.claims, authorityRuntimeMode),
     ...authorization,
     marketName: profile.marketName || null,
   }
