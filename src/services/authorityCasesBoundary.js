@@ -1,6 +1,6 @@
 import { collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, where } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
-import { auth, authorityRuntimeMode, consumerRuntime, db, functions, getAuthorityAppCheckToken } from './firebase.js'
+import { auth, authorityRuntimeMode, consumerRuntime, db, functions, getAuthorityAppCheckToken } from './authorityFirebase.js'
 import { authorityFailureMessage } from './consumerAuthorityPolicy.js'
 import { CLOUD_TRANSITION_ENDPOINT, createAuthorityTransitionClient } from './authorityTransitionClient.js'
 import { createConsumerIntakeClient } from './authorityIntakeClient.js'

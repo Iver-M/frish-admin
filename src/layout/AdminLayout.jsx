@@ -1,3 +1,4 @@
+import { FEEDBACK_MODE } from '../services/feedbackEnvironment.js'
 import { createContext, useContext, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Outlet, Navigate, useNavigate, useLocation } from 'react-router-dom'
@@ -19,7 +20,7 @@ const ROUTE_ACCESS = {
   '/inspectors': ['bfar_admin'],
   '/vendors': ['market_admin'],
   '/audit-trail': ['bfar_admin'],
-  '/feedback': ['bfar_admin', 'market_admin'],
+  '/feedback': ['bfar_admin'],
   '/admins': ['bfar_admin'],
   '/profile': ['bfar_admin', 'market_admin'],
   '/notifications': ['bfar_admin', 'market_admin'],
@@ -42,7 +43,7 @@ const BFAR_PAGE_HEADERS = {
   '/inspectors': ['Inspector Management', 'Create, view, and manage inspector account assignments'],
   '/vendors': ['Vendor Management', 'Create, view, and manage vendor records'],
   '/audit-trail': ['Audit Trail', 'Monitor system activities and user actions'],
-  '/feedback': ['User Feedback', 'Review and manage user comments, suggestions, and feedback'],
+  '/feedback': ['User Feedback', FEEDBACK_MODE === 'online_test' ? 'Read controlled team test feedback' : 'Read Consumer feedback submitted to the local Firebase emulators'],
   '/admins': ['Manage Admins', 'Manage BFAR and market administrator accounts'],
   '/profile': ['Profile Management', 'View and update your profile information and account settings'],
   '/notifications': ['Notifications', 'Stay updated on reports, reviews, assessments, and vendor actions.'],

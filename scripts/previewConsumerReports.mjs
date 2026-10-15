@@ -15,6 +15,7 @@ const server = await createServer({ root, configFile: false, envFile: false, plu
     if (file.endsWith('/src/context/AuthContext.jsx')) return `export { useAuth } from '${fixture}'`
     if (file.endsWith('/src/services/firestoreService.js')) return `export { listActiveInspectors } from '${fixture}'`
     if (file.endsWith('/src/services/firebase.js')) return 'export const auth = null; export const isAuthorityEmulatorEnabled = false; export const isFirebaseEnabled = false;'
+    if (file.endsWith('/src/services/authorityFirebase.js')) return 'export const auth = null; export const isAuthorityEmulatorEnabled = false;'
   },
   configureServer(instance) {
     instance.middlewares.use(async (req, res, next) => {

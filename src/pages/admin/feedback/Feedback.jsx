@@ -20,11 +20,7 @@ import {
   resolveFeedback,
   subscribeMarketRecords,
 } from '../../../services/firestoreService.js'
-import {
-  CONSUMER_FEEDBACK_RUNTIME_ENABLED,
-  consumerFeedbackErrorMessage,
-  listConsumerFeedback,
-} from '../../../services/consumerFeedbackBoundary.js'
+import ConsumerFeedbackInbox from './ConsumerFeedbackInbox.jsx'
 import {
   feedbackTimestampValue,
   formatFeedbackTimestamp,
@@ -42,8 +38,6 @@ const FILTERS = [
 export default function Feedback() {
   const { user, isFirebaseEnabled } = useAuth()
   const [feedback, setFeedback] = useState(() => fallbackFeedback(isFirebaseEnabled))
-  const [consumerFeedback, setConsumerFeedback] = useState([])
-  const [consumerError, setConsumerError] = useState('')
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [viewingId, setViewingId] = useState('')
@@ -78,30 +72,7 @@ export default function Feedback() {
     )
   }, [isFirebaseEnabled, user])
 
-  useEffect(() => {
-    if (!isFirebaseEnabled || user?.role !== 'bfar_admin' || !CONSUMER_FEEDBACK_RUNTIME_ENABLED) {
-      setConsumerFeedback([])
-      setConsumerError('')
-      return undefined
-    }
-    let active = true
-    const load = async () => {
-      try {
-        const records = await listConsumerFeedback(50)
-        if (active) { setConsumerFeedback(records.map(normalizeFeedbackRecord)); setConsumerError('') }
-      } catch (loadError) {
-        if (active) setConsumerError(consumerFeedbackErrorMessage(loadError))
-      }
-    }
-    void load()
-    const interval = window.setInterval(load, 60_000)
-    return () => { active = false; window.clearInterval(interval) }
-  }, [isFirebaseEnabled, user])
-
-  const allFeedback = useMemo(
-    () => [...feedback, ...consumerFeedback].sort(newestFirst),
-    [consumerFeedback, feedback],
-  )
+  const allFeedback = feedback
 
   const viewing = useMemo(
     () => allFeedback.find((item) => item.id === viewingId) || null,
@@ -210,11 +181,10 @@ export default function Feedback() {
       </div>
 
       {error && !viewing && <p className="feedback-alert feedback-alert--error" role="alert">{error}</p>}
-      {consumerError && <p className="feedback-alert feedback-alert--warning" role="status">{consumerError}</p>}
 
       <section className="feedback-board">
         <div className="feedback-board__heading">
-          <div><h3>Feedback inbox</h3><p>Review user experiences and follow up on concerns. New feedback appears here automatically.</p></div>
+          <div><h3>Inspector feedback</h3><p>Review user experiences and follow up on concerns. New feedback appears here automatically.</p></div>
           <span>{loading ? 'Loading…' : `${filtered.length} ${filtered.length === 1 ? 'feedback item' : 'feedback items'}`}</span>
         </div>
         {loading ? <div className="feedback-board__empty">Loading mobile feedback…</div> : filtered.length ? (
@@ -223,6 +193,8 @@ export default function Feedback() {
           </div>
         ) : <div className="feedback-board__empty">{error ? 'Feedback is temporarily unavailable.' : 'No feedback matches the selected filters.'}</div>}
       </section>
+
+      <ConsumerFeedbackInbox />
 
       <Modal
         open={Boolean(viewing)}

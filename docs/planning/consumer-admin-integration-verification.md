@@ -2,6 +2,90 @@
 
 Verification date: 2026-10-15 (Asia/Manila).
 
+## Latest main synchronization — 2026-10-15
+
+The project owner explicitly authorized merging `origin/main` into the published
+feature branch. Preflight confirmed a clean task worktree on
+`admin-portal-progress`, HEAD/local/remote `3a10d12`, and latest fetched main
+`4b4938bea822929109b0e4a1251f49b63542e18c`. The local feature branch included the
+remote tip. The merge preserves both parents; no rebase or force push is used.
+
+The primary `feature/cloud-authority-integration` checkout remains untouched.
+Its preflight and final status/diff summaries show the same unfinished work;
+no primary source/log file was edited or removed. The initial hash manifest was
+written to sandbox-temporary storage and was unavailable to the final command,
+so a pre-merge byte-for-byte comparison is not claimed. A durable local recovery
+snapshot of all 13 changed/untracked source/log files was then verified using
+exact copies, a binary-capable patch against primary HEAD, SHA-256 hashes and
+successful patch recovery in an isolated directory. The manifest is retained at
+`C:/Users/jared/.codex/visualizations/2026/10/14/01a13cd5-d2b8-72b0-93de-519b076a5469/admin-pr10-primary-preservation/manifest.json`.
+The primary source branch and HEAD are recorded there; no cleanup was performed.
+
+| Conflicted file | Resolution preserving both implementations |
+| --- | --- |
+| `.env.example` | Keep Consumer authority/App Check/Maps entries alongside main's feedback emulator/online/production flags. Firebase and Consumer authority remain disabled by default; online and production approvals remain false. |
+| `.firebaserc` | Both parents use the same project/Hosting target. Retain that mapping and the feature branch's empty `etags` metadata. |
+| `README.md` | Keep authority, Maps and authentication guidance; retain main's feedback contract/acceptance references while clarifying that its runtime is disabled and previous acceptance notes are historical. Document isolated Consumer emulators. |
+| `src/services/firebase.js` | Preserve main's exact-project, cloud-only default app for Inspector/Admin. Move Consumer runtime/App Check handling to `authorityFirebase.js`; explicit Consumer emulator mode uses its own named app and existing local ports. It never reconnects or copies the primary cloud credentials. |
+| `src/services/authService.js` | Preserve profile-based portal role/status/market authorization, email/Google sign-in and password/profile features. Retain main's refreshed signed `feedbackOnlineTest` claim and compatible `signInAdmin` entry point. Consumer permission summaries use the corresponding signed session without granting access. Keep main's sanitized session error log. |
+| `src/pages/admin/feedback/Feedback.jsx` | Preserve the branch's Inspector record subscription/internal follow-up controls. Compose main's Consumer inbox as a separate `ConsumerFeedbackInbox.jsx`, retaining exact validated projections, fresh signed claims, stale-request guards, loading/error/empty states and read-only cards. The old Consumer feedback adapter delegates to this validated client; its old flag cannot bypass main's disabled runtime. |
+| `src/pages/admin/feedback/Feedback.css` | Preserve Inspector styles and scope main's Consumer inbox styles to its own section, avoiding selector collisions. |
+
+Consumer authority intake/actions, the HTTP transition envelope, App Check,
+version checks, retained retry commands, server-confirmed results, privacy and
+BFAR-versus-LGU restrictions remain intact. Consumer evidence uses the isolated
+Consumer client while retaining its existing development/project/origin/flag
+checks. Cloud mode shares the approved primary cloud identity; emulator sessions
+are explicitly separate, held in memory, and cleared on portal sign-out/account
+change. No emulator credentials are created or copied automatically. An already
+authorized synthetic session can be reflected through Refresh permissions; a
+complete common local Admin/Android setup remains an owner dependency.
+
+Automatic merges were reviewed too: main's BFAR-only feedback route/sidebar,
+legacy-module subscriptions, controlled-test notification behavior and inert
+sample-account corrections are retained alongside the branch's Report Management
+navigation. Inspector report components, Firestore/Storage rules, package files
+and lockfile have no changes relative to the pre-merge feature HEAD. There was no
+dependency or lockfile conflict. Main's `consumerFeedbackInbox.js` and
+`feedbackEnvironment.js` are retained without edits.
+
+Validation on the combined source:
+
+- **82 Admin tests passed**, including both parents' tests and six new merge
+  regression checks. Main's source assertions were updated for the existing
+  Report Management label, explicitly gated Consumer views, and the extracted
+  Consumer component; authorization/privacy/runtime assertions were retained or
+  strengthened. The first run's three obsolete source-location/label assumptions
+  were resolved; no authorization or environment test was removed.
+- **Admin production build passed**, with the existing >500 kB chunk warning.
+  No lint/typecheck script is defined.
+- **Actual Consumer PR #46 handler check passed** against
+  `b57a6e562d10eaf04961d5a37fd66ce8716e5f51`, including one linked case, denial,
+  rejection retries, HTTP transport, one transition receipt after response loss,
+  stale versions, forwarding and role-restricted resolution.
+- **Shared contract drift check passed**; frozen fixture/validator files remain
+  unchanged.
+- **Local status-delivery emulator check passed again** using the existing
+  9099/8080/5001 Auth/Firestore/Functions setup. It verified owner-only automatic
+  projections, denial, synthetic registration/disable and zero emulator push
+  receipts, then shut down its emulators. No real device or token was registered.
+  Existing Node 24 versus Functions Node 22, SDK-version and metadata-discovery
+  warnings were observed; the script exited 0.
+- Working/staged `git diff --check`, JSON parsing and a hidden-file-inclusive
+  conflict-marker scan passed before committing. PR mergeability and exact
+  pushed merge commit are recorded in PR #10 after GitHub recalculates them.
+
+These results are local/fixture verification, not a live Firebase audit or actual
+Admin-to-Android/FCM acceptance. Native/browser visual acceptance from the earlier
+record was not repeated for this merge. All backend/account/deployment and
+acceptance dependencies below remain open. PR #10 stays draft, PR #9 stays closed.
+No cloud deployment, shared-cloud write, real account/claim/FCM change, production
+enablement, branch deletion or PR merge was performed.
+
+The remaining sections retain the initial integration investigation and its
+revision-bound evidence; the synchronization notes above supersede any earlier
+assumption that the portal's primary auth session can be moved to emulators.
+
 Admin starting revision: `d906d35`, remote `admin-portal-progress`.
 The existing branch was explicitly requested, so it was continued rather than
 recreated from main. Its original Inspector/UI changes remain in scope for review.
@@ -159,9 +243,9 @@ revision-bound evidence, not a fresh deployment inspection in this task.
 3. **Staff role/policy setup:** cloud login can use a `market_admin` portal profile
    with separately authorized signed `lgu` claims. The endpoint permits only
    `lgu` to resolve, even though rules can read some other LGU-role aliases.
-   Coordinate the intended account mapping and policies with the owner. Existing
-   emulator login uses token role for portal access and does not accept `lgu`;
-   that local mapping remains an owner dependency. Inspector app controls are
+   Coordinate the intended account mapping and policies with the owner. The primary portal continues to authorize its cloud profile, while an
+   explicitly established Consumer emulator session must independently carry the
+   permitted signed role. That common local setup remains an owner dependency. Inspector app controls are
    outside this Admin change.
 4. **Assignee validation:** the existing transition service checks the acting
    staff identity, policy and resource; assignment validates inspector ID/name
@@ -208,4 +292,4 @@ revision-bound evidence, not a fresh deployment inspection in this task.
 
 Deferred: dependencies above; deployed cross-app/phone acceptance and real pushes;
 Consumer improvements #7/#8 and the standalone offline demo. No deployment,
-production approval, merge, source-branch cleanup or reopening Admin PR #9.
+production approval, PR merge, source-branch cleanup or reopening Admin PR #9.

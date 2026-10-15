@@ -4,7 +4,7 @@
 // record would have (phone, department, account metadata).
 
 export const adminProfile = {
-  email: 'admin@frish.gov.ph',
+  email: 'bfar.admin@example.test',
   phone: '+63 993 431 0023',
   department: 'Bureau of Fisheries and Aquatic Resources (BFAR)',
   accountCreated: 'June 15, 2026',

@@ -99,6 +99,7 @@ VITE_CONSUMER_AUTHORITY_MODE=cloud_test
 VITE_CONSUMER_FEEDBACK_MODE=disabled
 VITE_AUTHORITY_CASES_EMULATOR=false
 VITE_AUTHORITY_EVIDENCE_EMULATOR=false
+VITE_CONSUMER_FEEDBACK_EMULATOR=false
 VITE_AUTHORITY_EVIDENCE_ENDPOINT=http://127.0.0.1:5001/frish-app2026/asia-southeast1/getAuthorityCaseEvidence
 VITE_FIREBASE_API_KEY=your_web_api_key
 VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
@@ -117,13 +118,16 @@ Project settings > General > Your apps > Web app > SDK setup and configuration
 
 Do not commit `.env.local`, passwords, service-account files, or private keys.
 
-`VITE_CONSUMER_AUTHORITY_MODE=cloud_test` enables the Consumer Intake and Consumer Cases tabs inside Report Management
+`VITE_CONSUMER_AUTHORITY_MODE=cloud_test` configures the Consumer Intake and Consumer Cases views inside Report Management
 against the shared team-test callable Functions and Firestore contract. Authorized BFAR users also need the Consumer cloud-test custom
 claims; a Firestore `users/{UID}` profile by itself is not sufficient for the protected callable.
 
-Set `VITE_CONSUMER_FEEDBACK_MODE=online_test` only when the controlled Consumer feedback Function environment is enabled
-and the BFAR account has `feedbackOnlineTest: "consumer-feedback-v1"`. The Consumer inbox is intentionally read-only and
-excludes the raw feedback document ID, Consumer UID, and contact details.
+Consumer feedback retains current main's disabled runtime and its existing
+`VITE_FEEDBACK_ENVIRONMENT`, `VITE_ONLINE_TEST_APPROVED` and
+`VITE_PRODUCTION_FIREBASE_APPROVED=false` gates. The older
+`VITE_CONSUMER_FEEDBACK_MODE` flag cannot bypass that disabled runtime. Any future
+approved inbox still requires signed `feedbackOnlineTest: "consumer-feedback-v1"`
+and exact, privacy-safe response validation.
 
 The mobile app uses the Google Maps SDK for Android. The portal uses the matching Google Maps Platform provider through
 the Maps Embed API. Create a separate website-restricted key for `localhost` and `https://frish.web.app`; do not reuse
@@ -131,6 +135,23 @@ the Android-restricted mobile key. If the web key is absent, the portal keeps a 
 not render the embedded preview.
 
 Enable the **Google** and **Email/Password** providers under **Firebase Authentication > Sign-in method**. Both methods require an authorized BFAR or LGU Firestore profile. Keep Email/Password enabled if it is also required by the Inspector mobile application.
+
+### Consumer feedback emulator inbox
+
+The Consumer feedback section remains sample-only because current main keeps
+`CONSUMER_FEEDBACK_RUNTIME_ENABLED=false`. Existing environment evaluators and
+claim/projection checks are retained for the separately approved setup; setting
+an emulator or online flag alone does not enable the inbox. Consumer cards remain
+anonymous and read-only, and no direct private Consumer Firestore read is added.
+The existing Inspector feedback section retains its cloud records and internal
+follow-up actions separately.
+
+The primary Admin Firebase client always remains on cloud Firebase, including
+when Consumer authority emulator mode is explicitly selected. That mode uses a
+separate named Firebase app/session at the existing local ports. Cloud credentials
+are never copied or signed into the emulator automatically. A separately
+established authorized synthetic Consumer session is required; the common local
+Admin-to-Android setup remains a documented backend dependency.
 
 ### Secure authority evidence emulator
 
@@ -207,7 +228,7 @@ users/{INSPECTOR_AUTH_UID}
 ```text
 users/{BFAR_AUTH_UID}
   name: "BFAR-NCR Admin"
-  email: "admin@frish.gov.ph"
+  email: "bfar.admin@example.test"
   role: "bfar_admin"
   accountStatus: "active"
 ```
@@ -416,3 +437,13 @@ Then restart the development server.
 - Firebase-enabled modules use real-time Firestore listeners.
 - Demonstration records remain available when `VITE_USE_FIREBASE=false`.
 - See [`FIREBASE_SETUP.md`](./FIREBASE_SETUP.md) for additional Firebase configuration guidance.
+
+
+The following notes describe earlier controlled-feedback checkpoints, not current runtime enablement. Consumer feedback is currently disabled; the primary Inspector/Admin client stays on cloud Firebase. Production enablement remains unapproved. Earlier Online Consumer Feedback was restricted to controlled team test data and an active-BFAR read-only inbox. See [Checkpoint 1](docs/planning/online-feedback-checkpoint-1.md) and the [Checkpoint 2B Hosting package](docs/planning/online-feedback-checkpoint-2b.md).
+
+Final Android/browser acceptance verified the exact schema 1.1 path, one Admin
+projection across refresh, exact cleanup back to an empty inbox, and preservation
+of the original Admin navigation. The deployed Hosting, callable, Rules, index,
+and deny-all Storage state remains controlled-test only. App Check, anonymous
+test-account cleanup, function container-artifact cleanup, and official
+dataset/model approval remain open. See the [final online feedback review](docs/planning/online-feedback-final-review.md).

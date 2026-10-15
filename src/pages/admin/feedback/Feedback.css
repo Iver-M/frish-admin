@@ -70,3 +70,32 @@
 .feedback-saved-reply small,
 .feedback-reply-field > small,
 .feedback-delivery-note { font-size: 12px; }
+
+/* Current main Consumer inbox styles stay separate from Inspector controls. */
+.consumer-feedback-inbox { gap: 16px; }
+.consumer-feedback-inbox .feedback-notice { align-items: flex-start; border: 1px solid; border-radius: 12px; display: flex; gap: 10px; padding: 13px 15px; }
+.consumer-feedback-inbox .feedback-notice svg { flex: 0 0 auto; margin-top: 2px; }
+.consumer-feedback-inbox .feedback-notice strong { display: block; font-size: 13px; }
+.consumer-feedback-inbox .feedback-notice p { font-size: 11px; line-height: 1.5; margin: 3px 0 0; }
+.consumer-feedback-inbox .feedback-notice--sample { background: #fff8e6; border-color: #ead69c; color: #795b12; }
+.consumer-feedback-inbox .feedback-notice--error { background: #fff0ef; border-color: #efc1bd; color: #933b35; }
+.consumer-feedback-inbox .feedback-board { background: #fff; border: 1px solid #cadde9; border-radius: 14px; overflow: hidden; }
+.consumer-feedback-inbox .feedback-board__heading { align-items: center; background: #f3f8fc; border-bottom: 1px solid #dce8f0; display: flex; justify-content: space-between; padding: 15px 18px; }
+.consumer-feedback-inbox .feedback-board__heading h3 { color: #07537c; font-size: 15px; margin: 0; }
+.consumer-feedback-inbox .feedback-board__heading p, .consumer-feedback-inbox .feedback-board__heading span { color: #718695; font-size: 10px; margin: 3px 0 0; }
+.consumer-feedback-inbox .feedback-board__heading span { font-weight: 700; margin: 0; }
+.consumer-feedback-inbox .feedback-board__grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(285px, 1fr)); padding: 14px; }
+.consumer-feedback-inbox .feedback-card { border: 1px solid #c8d9e5; border-radius: 12px; display: flex; flex-direction: column; min-height: 174px; padding: 14px; }
+.consumer-feedback-inbox .feedback-card__top { align-items: flex-start; display: flex; gap: 12px; justify-content: space-between; }
+.consumer-feedback-inbox .feedback-card__top strong, .consumer-feedback-inbox .feedback-card__top small { display: block; }
+.consumer-feedback-inbox .feedback-card__top strong { color: #243c4e; font-size: 12px; }
+.consumer-feedback-inbox .feedback-card__top small { color: #7a8f9e; font-size: 9px; margin-top: 3px; }
+.consumer-feedback-inbox .feedback-card > p { color: #536d7e; font-size: 11px; line-height: 1.55; margin: 16px 0; white-space: pre-wrap; }
+.consumer-feedback-inbox .feedback-card footer { align-items: flex-start; border-top: 1px solid #e1eaf0; display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: space-between; margin-top: auto; padding-top: 10px; }
+.consumer-feedback-inbox .feedback-card footer > span { align-items: center; color: #7a8f9e; display: flex; font-size: 9px; gap: 5px; }
+.consumer-feedback-inbox .feedback-rating { display: inline-flex; gap: 2px; }
+.consumer-feedback-inbox .feedback-rating svg { color: #bccbd4; fill: transparent; }
+.consumer-feedback-inbox .feedback-rating svg.is-filled { color: #d89b18; fill: currentColor; }
+.consumer-feedback-inbox .feedback-board__state { color: #607786; font-size: 12px; padding: 38px 20px; text-align: center; }
+.consumer-feedback-inbox .feedback-board__state--error { color: #933b35; }
+.consumer-feedback-inbox .feedback-board__state--error p { margin: 0 0 12px; }

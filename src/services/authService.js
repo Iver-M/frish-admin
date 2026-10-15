@@ -1,3 +1,4 @@
+import { FEEDBACK_MODE } from './feedbackEnvironment.js'
 import {
   EmailAuthProvider,
   GoogleAuthProvider,
@@ -10,7 +11,8 @@ import {
   updatePassword,
 } from 'firebase/auth'
 import { doc, getDoc } from 'firebase/firestore'
-import { auth, authorityRuntimeMode, db, isAuthorityEmulatorEnabled, isFirebaseEnabled } from './firebase.js'
+import { auth, db, isFirebaseEnabled } from './firebase.js'
+import { auth as authorityAuth, authorityRuntimeMode } from './authorityFirebase.js'
 import { consumerPermissions } from './consumerAuthorityPolicy.js'
 
 const AUTH_ERROR_MESSAGES = {
@@ -91,10 +93,18 @@ export async function signInAdminWithCredentials(email, password) {
   }
 }
 
+export const signInAdmin = signInAdminWithCredentials
+
 export async function getAdminProfile(firebaseUser) {
-  // Consumer authority runtimes rely on freshly issued custom claims. Normal
-  // portal sessions continue to use the Firestore profile as the role source.
-  const token = await getIdTokenResult(firebaseUser, authorityRuntimeMode !== 'disabled')
+  // Refresh claims for explicitly selected Consumer/feedback cloud-test modes.
+  // Portal sessions continue to use the Firestore profile as the role source.
+  const token = await getIdTokenResult(firebaseUser, authorityRuntimeMode === 'cloud_test' || FEEDBACK_MODE === 'online_test')
+  const onlineToken = FEEDBACK_MODE === 'online_test' ? token : null
+  let consumerClaims = authorityRuntimeMode === 'cloud_test' ? token.claims : {}
+  if (authorityRuntimeMode === 'emulator' && authorityAuth?.currentUser) {
+    try { consumerClaims = (await getIdTokenResult(authorityAuth.currentUser, true)).claims }
+    catch { /* Optional Consumer permissions must not prevent portal login. */ }
+  }
   const provider = token.claims.firebase?.sign_in_provider
   if (!['google.com', 'password'].includes(provider)) {
     throw new Error('This sign-in method is not supported for administrator access.')
@@ -107,15 +117,11 @@ export async function getAdminProfile(firebaseUser) {
   if (!profileSnapshot.exists()) throw new Error('This account has no FRISH user profile.')
 
   const profile = profileSnapshot.data()
-  const role = isAuthorityEmulatorEnabled ? token.claims.role : profile.role
-  const accountStatus = String(
-    isAuthorityEmulatorEnabled
-      ? token.claims.accountStatus
-      : (profile.accountStatus || profile.status || 'active'),
-  ).toLowerCase()
-  const marketId = isAuthorityEmulatorEnabled
-    ? (token.claims.marketId || profile.marketId || null)
-    : (profile.marketId || null)
+  // Portal authorization always uses main's cloud profile. Consumer emulator
+  // sessions are isolated and cannot replace the Inspector/Admin identity.
+  const role = profile.role
+  const accountStatus = String(profile.accountStatus || profile.status || 'active').toLowerCase()
+  const marketId = profile.marketId || null
 
   if (!['bfar_admin', 'market_admin'].includes(role)) {
     throw new Error('This account is not authorized for the admin portal.')
@@ -142,7 +148,8 @@ export async function getAdminProfile(firebaseUser) {
     createdAt: profile.createdAt || firebaseUser.metadata.creationTime || null,
     lastLoginAt: firebaseUser.metadata.lastSignInTime || null,
     authProvider: provider,
-    consumerPermissions: consumerPermissions(token.claims, authorityRuntimeMode),
+    consumerPermissions: consumerPermissions(consumerClaims, authorityRuntimeMode),
+    feedbackOnlineTest: onlineToken?.claims.feedbackOnlineTest || null,
     ...authorization,
     marketName: profile.marketName || null,
   }
@@ -174,8 +181,13 @@ export async function changeAdminPassword(currentPassword, newPassword) {
 
 export function observeAdminSession(callback) {
   if (!isFirebaseEnabled) return () => {}
+  let portalUid = null
 
   return onAuthStateChanged(auth, async (firebaseUser) => {
+    if ((!firebaseUser || (portalUid && portalUid !== firebaseUser.uid)) && authorityAuth && authorityAuth !== auth) {
+      await signOut(authorityAuth).catch(() => {})
+    }
+    portalUid = firebaseUser?.uid || null
     if (!firebaseUser) {
       callback(null)
       return
@@ -184,7 +196,7 @@ export function observeAdminSession(callback) {
     try {
       callback(await getAdminProfile(firebaseUser))
     } catch (error) {
-      console.error('Unable to load the FRISH administrator profile.', error)
+      console.error('Unable to verify the FRISH admin session.')
       await signOut(auth).catch(() => {})
       callback(null)
     }
@@ -192,7 +204,8 @@ export function observeAdminSession(callback) {
 }
 
 export function signOutAdmin() {
-  return isFirebaseEnabled ? signOut(auth) : Promise.resolve()
+  if (!isFirebaseEnabled) return Promise.resolve()
+  return Promise.all([signOut(auth), authorityAuth && authorityAuth !== auth ? signOut(authorityAuth) : Promise.resolve()])
 }
 
 function defaultDepartment(role) {
