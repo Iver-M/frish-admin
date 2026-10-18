@@ -2,11 +2,10 @@
 
 FRISH is a role-based administration portal for monitoring fish freshness assessments, report workflows, and market enforcement activity at **Pasig Public Market**.
 
-> Consumer–authority integration is emulator-only and is not live in production. Shared contract `1.0.0` keeps
-> immutable Consumer `/concernReports` separate from current Inspector
-> `/reports` and explicitly promoted `/authorityCases`. A Consumer
-> `prototype_saved` record is not submitted to BFAR. See
-> [`docs/planning/emulator-consumer-intake.md`](docs/planning/emulator-consumer-intake.md).
+> The Consumer team-test build and this portal share the `frish-app2026` Firebase project. Consumer `/concernReports`
+> remain immutable and separate from Inspector `/reports`; BFAR must explicitly accept a concern through the trusted
+> callable before an `/authorityCases` record exists. This is a controlled `cloud_test` integration, not a production
+> authorization. The Consumer repository intentionally keeps `PRODUCTION_FIREBASE_APPROVED=false`.
 
 The portal is part of the FRISH capstone system and connects to the same Firebase project as the FRISH Inspector mobile application. Inspector scans and submitted reports are synchronized with the administration portal through Cloud Firestore.
 
@@ -40,8 +39,11 @@ The portal is part of the FRISH capstone system and connects to the same Firebas
 - LGU vendor compliance history
 - Dynamic notifications
 - Audit trail
-- User feedback
+- Live Inspector feedback management and privacy-safe Consumer feedback inbox
+- Report location-integrity review for Pasig Public Market
 - Administrator profile management
+
+With Firebase enabled, these operational modules use live Firestore data. Vendor Records is assembled from submitted `reports` and merged with managed `vendors` documents, while Profile Management reads and updates the signed-in administrator's `users/{UID}` profile. Demonstration records are used only when `VITE_USE_FIREBASE=false`.
 
 ## Technology
 
@@ -49,7 +51,7 @@ The portal is part of the FRISH capstone system and connects to the same Firebas
 - Vite 5
 - React Router 6
 - React Icons
-- Firebase Authentication
+- Firebase Authentication with Email/Password and Google administrator login
 - Cloud Firestore
 - Firebase Storage integration
 
@@ -93,7 +95,9 @@ Open `.env.local` and enter the Firebase Web App configuration:
 
 ```dotenv
 VITE_USE_FIREBASE=true
-VITE_AUTHORITY_CASES_EMULATOR=true
+VITE_CONSUMER_AUTHORITY_MODE=cloud_test
+VITE_CONSUMER_FEEDBACK_MODE=disabled
+VITE_AUTHORITY_CASES_EMULATOR=false
 VITE_AUTHORITY_EVIDENCE_EMULATOR=false
 VITE_CONSUMER_FEEDBACK_EMULATOR=false
 VITE_AUTHORITY_EVIDENCE_ENDPOINT=http://127.0.0.1:5001/frish-app2026/asia-southeast1/getAuthorityCaseEvidence
@@ -103,6 +107,7 @@ VITE_FIREBASE_PROJECT_ID=your_project_id
 VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
 VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 VITE_FIREBASE_APP_ID=your_web_app_id
+VITE_GOOGLE_MAPS_WEB_API_KEY=your_web_restricted_maps_embed_key
 ```
 
 The values are available in Firebase Console under:
@@ -113,18 +118,40 @@ Project settings > General > Your apps > Web app > SDK setup and configuration
 
 Do not commit `.env.local`, passwords, service-account files, or private keys.
 
+`VITE_CONSUMER_AUTHORITY_MODE=cloud_test` configures the Consumer Intake and Consumer Cases views inside Report Management
+against the shared team-test callable Functions and Firestore contract. Authorized BFAR users also need the Consumer cloud-test custom
+claims; a Firestore `users/{UID}` profile by itself is not sufficient for the protected callable.
+
+Consumer feedback retains current main's disabled runtime and its existing
+`VITE_FEEDBACK_ENVIRONMENT`, `VITE_ONLINE_TEST_APPROVED` and
+`VITE_PRODUCTION_FIREBASE_APPROVED=false` gates. The older
+`VITE_CONSUMER_FEEDBACK_MODE` flag cannot bypass that disabled runtime. Any future
+approved inbox still requires signed `feedbackOnlineTest: "consumer-feedback-v1"`
+and exact, privacy-safe response validation.
+
+The mobile app uses the Google Maps SDK for Android. The portal uses the matching Google Maps Platform provider through
+the Maps Embed API. Create a separate website-restricted key for `localhost` and `https://frish.web.app`; do not reuse
+the Android-restricted mobile key. If the web key is absent, the portal keeps a safe external Google Maps link but does
+not render the embedded preview.
+
+Enable the **Google** and **Email/Password** providers under **Firebase Authentication > Sign-in method**. Both methods require an authorized BFAR or LGU Firestore profile. Keep Email/Password enabled if it is also required by the Inspector mobile application.
+
 ### Consumer feedback emulator inbox
 
-The User Feedback page remains sample-only by default. To show Consumer feedback
-from the local emulator suite, set `VITE_CONSUMER_FEEDBACK_EMULATOR=true`. This
-also requires Vite development mode, `VITE_USE_FIREBASE=true`,
-`VITE_AUTHORITY_CASES_EMULATOR=true`, project `frish-app2026`, and fresh Firebase
-claims for an active BFAR Admin.
+The Consumer feedback section remains sample-only because current main keeps
+`CONSUMER_FEEDBACK_RUNTIME_ENABLED=false`. Existing environment evaluators and
+claim/projection checks are retained for the separately approved setup; setting
+an emulator or online flag alone does not enable the inbox. Consumer cards remain
+anonymous and read-only, and no direct private Consumer Firestore read is added.
+The existing Inspector feedback section retains its cloud records and internal
+follow-up actions separately.
 
-The page calls the local `listConsumerFeedback` Function and never reads
-Firestore directly. It displays only an anonymous reference, rating, text,
-app/platform versions and submission time. The inbox has no mutation controls or
-private operational data. The flag defaults to false and production fails closed.
+The primary Admin Firebase client always remains on cloud Firebase, including
+when Consumer authority emulator mode is explicitly selected. That mode uses a
+separate named Firebase app/session at the existing local ports. Cloud credentials
+are never copied or signed into the emulator automatically. A separately
+established authorized synthetic Consumer session is required; the common local
+Admin-to-Android setup remains a documented backend dependency.
 
 ### Secure authority evidence emulator
 
@@ -178,9 +205,9 @@ Preview the generated build with:
 npm run preview
 ```
 
-## Firebase user profiles
+## Google administrator login and Firestore profiles
 
-Firebase Authentication accounts require matching Firestore profiles. Create the profile inside the `users` collection and use the account's exact Firebase Authentication UID as the Firestore document ID.
+Firebase Authentication accounts require matching Firestore profiles. On the first Google sign-in attempt, Firebase creates the Authentication identity and the portal rejects it because no FRISH profile exists yet. Copy the new UID from Firebase Authentication, create the matching profile inside `users`, and sign in again.
 
 Do not use an Auto-ID or email address as the document ID.
 
@@ -218,7 +245,7 @@ users/{LGU_AUTH_UID}
   marketName: "Pasig Public Market"
 ```
 
-The Inspector Management and Manage Admins pages create and update Firestore profiles. They do not create Firebase Authentication accounts or passwords. Create the Authentication account first, then register its UID through the appropriate management page.
+The Inspector Management and Manage Admins pages create and update Firestore profiles. They do not create Google accounts or Firebase Authentication identities. For administrators, complete one Google sign-in attempt first, then register the resulting UID through Manage Admins or Firebase Console.
 
 ## Firestore collections
 
@@ -227,15 +254,25 @@ The Inspector Management and Manage Admins pages create and update Firestore pro
 | `users` | Inspector, BFAR, and LGU profiles and access status |
 | `scans` | Freshness assessments submitted by the Inspector app |
 | `reports` | Existing Inspector reports and BFAR/LGU workflow; not Consumer concerns |
-| `authorityCases` | Emulator-only promoted Consumer authority workflow |
+| `vendors` | LGU-managed operating status merged with vendor activity derived from reports |
+| `feedback` | Inspector mobile-app ratings and comments reviewed and managed by BFAR |
+| `consumerFeedback` | Consumer ratings exposed to BFAR only through a sanitized, read-only callable inbox |
+| `authorityCases` | Trusted promoted Consumer authority workflow in emulator or controlled cloud test |
 | `auditLogs` | Administrative actions and workflow history |
 | `reporterNotifications` | Private conclusions sent to original reporters |
 
 ## Report workflow
 
-This workflow applies only to existing Inspector `/reports`. The portal does
-not subscribe to `/concernReports` or `/authorityCases`, and it does not map
-`prototype_saved` to `submitted`.
+Report Management is the single visible reporting module in both administrator sidebars. Its tabs compose two separate
+and intentionally different data workflows: Inspector Reports use `/reports`, while Consumer Intake calls the trusted
+backend and never reads protected concern documents directly. After BFAR accepts a concern, the Consumer Cases tab
+subscribes to the resulting `/authorityCases` record in real time. Forwarded Consumer authority cases are visible to
+the Pasig LGU through a market-scoped query. The portal never merges these collections or maps `prototype_saved` to
+`submitted` on the client. Legacy `/consumer-intake` and `/authority-cases` URLs remain available only so existing
+bookmarks and notification links from older builds do not break.
+
+The manuscript/module comparison and the remaining controlled-test gates are recorded in
+[`docs/planning/documentation-module-alignment.md`](docs/planning/documentation-module-alignment.md).
 
 1. An inspector submits a report with the `submitted` status.
 2. BFAR receives the report through a real-time Firestore listener.
@@ -253,6 +290,34 @@ createdBy.uid: authenticated inspector UID
 createdBy.role: "inspector"
 ```
 
+The portal accepts the current Inspector app's nested report payload without requiring a manual migration:
+
+```text
+assessment: { fishType, freshness, confidence, sensor, location, detectedParts, ... }
+vendor: { vendorName, stallNumber, contactNumber }
+inspector: { findings, actionTaken }
+```
+
+BFAR resolves `createdBy.uid` against `users/{UID}` so the report list and detail page show the inspector's managed profile name. When BFAR forwards a case, the portal adds the canonical Pasig market fields, the forwarding actor, workflow timestamp, and audit entry. The LGU decision follows the same audited pattern.
+
+If the mobile app submits usable coordinates, the report detail page shows a decision-support radius check for Pasig Public Market. The current 300-meter radius is provisional; replace it with the approved operational boundary before using the result for enforcement. A `0, 0` location is treated as not captured.
+
+## Mobile feedback workflow
+
+The BFAR User Feedback page listens to the Inspector app's `feedback` collection in real time. It also loads the
+Consumer app's sanitized feedback projection through the trusted `listConsumerFeedback` callable when the controlled
+online-test flag and claim are enabled. It supports the current Inspector mobile fields:
+
+```text
+userId, userEmail, userName, role, rating, message,
+createdAt, status, platform, appVersion
+```
+
+BFAR can record a response and resolve an Inspector feedback item. These actions also create audit entries. Consumer
+feedback remains read-only because its callable response intentionally provides no writable document identifier or
+Consumer identity. The current Inspector app does not yet listen for feedback replies, so saved Inspector responses
+remain administrative records until that mobile screen is implemented.
+
 ## Assessment records
 
 The Assessment page reads live records from the Firestore `scans` collection. Display codes use the following format:
@@ -268,7 +333,10 @@ Images stored as mobile `file://` paths are available only on the inspector's de
 
 ## Firestore rules
 
-The canonical combined emulator rules are stored in the sibling Consumer/backend repository at `../FRISH/firestore.rules`. This repository's historical rules file remains a legacy Admin reference and must not be deployed for the authority milestone.
+This repository's `firestore.rules` mirrors the Consumer repository's generated controlled cloud-test ruleset and
+preserves the existing Inspector/mobile and Admin Portal collections. `firestore.indexes.json` is the union of the
+Consumer intake indexes and the existing Admin/Inspector indexes. Treat the Consumer repository's rule fragments as
+the source of truth and regenerate there before copying a future revision here.
 
 Coordinate rule changes with the Inspector mobile team before deployment. Deploy the rules with:
 
@@ -279,10 +347,19 @@ npx firebase-tools deploy --only firestore:rules --project frish-app2026
 
 Only one Firestore ruleset can be active in a Firebase project. Do not deploy separate mobile and web rule files without merging their permissions first.
 
-For shared contract `1.0.0`, deployment remains prohibited. The combined rules
-are emulator-tested only and have not been approved for production.
-Consumer `PRODUCTION_FIREBASE_APPROVED` remains `false`; no production Firebase
-data should be accessed for this milestone.
+The current combined rules are for the controlled team-test environment. Consumer
+`PRODUCTION_FIREBASE_APPROVED` remains `false`; do not reinterpret the cloud-test flags as production approval.
+
+## Firebase Hosting
+
+The project is configured to deploy the Vite `dist` folder to the Firebase Hosting target `frish` (`https://frish.web.app`). After changing the portal, publish the latest build with:
+
+```powershell
+npm run build
+firebase deploy --only hosting
+```
+
+Hosting deployment does not publish Firestore rules. When the operational rules changed and the mobile team has confirmed the merge, deploy them separately with `firebase deploy --only firestore:rules`.
 
 ## Updating a local copy
 
@@ -362,7 +439,7 @@ Then restart the development server.
 - See [`FIREBASE_SETUP.md`](./FIREBASE_SETUP.md) for additional Firebase configuration guidance.
 
 
-Online Consumer Feedback is restricted to controlled team test data and an active-BFAR read-only inbox. Other shared modules remain emulator-only and production remains disabled. See [Checkpoint 1](docs/planning/online-feedback-checkpoint-1.md) and the [Checkpoint 2B Hosting package](docs/planning/online-feedback-checkpoint-2b.md).
+The following notes describe earlier controlled-feedback checkpoints, not current runtime enablement. Consumer feedback is currently disabled; the primary Inspector/Admin client stays on cloud Firebase. Production enablement remains unapproved. Earlier Online Consumer Feedback was restricted to controlled team test data and an active-BFAR read-only inbox. See [Checkpoint 1](docs/planning/online-feedback-checkpoint-1.md) and the [Checkpoint 2B Hosting package](docs/planning/online-feedback-checkpoint-2b.md).
 
 Final Android/browser acceptance verified the exact schema 1.1 path, one Admin
 projection across refresh, exact cleanup back to an empty inbox, and preservation

@@ -23,7 +23,7 @@ export const isFirebaseEnabled = runtimeEnv.VITE_USE_FIREBASE === 'true'
 // to use cloud Firebase for the existing Inspector/Admin workflow.
 export const isAuthorityEmulatorEnabled = false
 
-const app = isFirebaseEnabled ? (getApps()[0] || initializeApp(firebaseConfig)) : null
+const app = isFirebaseEnabled ? (getApps().find(candidate => candidate.name === '[DEFAULT]') || initializeApp(firebaseConfig)) : null
 export const auth = app ? getAuth(app) : null
 export const db = app ? getFirestore(app) : null
 export const storage = app ? getStorage(app) : null

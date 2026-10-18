@@ -96,8 +96,8 @@
 .sidebar__account { align-items: center; display: flex; gap: 10px; min-height: 62px; }
 .sidebar__account-avatar { align-items: center; background: #244a84; border-radius: 50%; color: #fff; display: flex; flex: 0 0 38px; font-size: 12px; font-weight: 700; height: 38px; justify-content: center; }
 .sidebar__account-copy { display: grid; flex: 1; gap: 2px; min-width: 0; }
-.sidebar__account-copy strong { color: var(--text-primary); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sidebar__account-copy small { color: var(--text-secondary); font-size: 10px; }
+.sidebar__account-copy strong { color: var(--text-primary); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar__account-copy small { color: var(--text-secondary); font-size: 12px; }
 .sidebar__signout { align-items: center; background: transparent; border: 0; border-radius: 8px; color: var(--color-primary); cursor: pointer; display: flex; padding: 8px; }
 .sidebar__signout:hover { background: var(--color-info-bg); }
 .sidebar__signout:focus-visible { outline: 3px solid rgba(4, 68, 112, .22); }

@@ -1,117 +1,315 @@
-import { FEEDBACK_MODE } from '../../../services/feedbackEnvironment.js'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { FiAlertCircle, FiClock, FiRefreshCw, FiStar } from 'react-icons/fi'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  FiClock,
+  FiEye,
+  FiMeh,
+  FiMessageSquare,
+  FiRotateCcw,
+  FiStar,
+  FiThumbsDown,
+  FiThumbsUp,
+} from 'react-icons/fi'
+import ConfirmDialog from '../../../components/ConfirmDialog.jsx'
+import Modal from '../../../components/Modal.jsx'
+import SearchBar from '../../../components/SearchBar.jsx'
+import StatusBadge from '../../../components/StatusBadge.jsx'
 import { useAuth } from '../../../context/AuthContext.jsx'
 import { getFeedback } from '../../../data/feedback.js'
 import {
-  CONSUMER_FEEDBACK_RUNTIME_ENABLED,
-  canViewConsumerFeedback,
-  consumerFeedbackErrorMessage,
-  createFeedbackInboxRequestGuard,
-  listConsumerFeedback,
-} from '../../../services/consumerFeedbackInbox.js'
+  replyToFeedback,
+  resolveFeedback,
+  subscribeMarketRecords,
+} from '../../../services/firestoreService.js'
+import ConsumerFeedbackInbox from './ConsumerFeedbackInbox.jsx'
+import {
+  feedbackTimestampValue,
+  formatFeedbackTimestamp,
+  normalizeFeedbackRecord,
+} from '../../../utils/feedbackRecord.js'
 import './Feedback.css'
 
-function formatSubmittedAt(value) {
-  return new Intl.DateTimeFormat('en-PH', {
-    dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Manila',
-  }).format(new Date(value))
-}
-
-function Rating({ value }) {
-  return <span className="feedback-rating" aria-label={`${value} out of 5 stars`}>
-    {Array.from({ length: 5 }, (_, index) => <FiStar key={index} aria-hidden="true" className={index < value ? 'is-filled' : ''} />)}
-  </span>
-}
-
-function FeedbackCards({ items, live }) {
-  return <div className="feedback-board__grid">
-    {items.map((item) => <article className="feedback-card" key={live ? item.feedbackReference : item.id}>
-      <div className="feedback-card__top">
-        <div>
-          <strong>{live ? item.feedbackReference : item.subject}</strong>
-          <small>{live ? 'Anonymous Consumer feedback' : `${item.id} · Sample ${item.userType}`}</small>
-        </div>
-        {live && <Rating value={item.rating} />}
-      </div>
-      <p>{live ? item.feedbackText : item.comment}</p>
-      <footer>
-        <span><FiClock aria-hidden="true" /> {live ? formatSubmittedAt(item.submittedAt) : `${item.date} · ${item.time}`}</span>
-        {live && <span>App {item.appVersion} · Android {item.platformVersion}</span>}
-      </footer>
-    </article>)}
-  </div>
-}
+const FILTERS = [
+  { value: 'all', label: 'All feedback' },
+  { value: 'pending', label: 'Pending review' },
+  { value: 'in-progress', label: 'In progress' },
+  { value: 'resolved', label: 'Resolved' },
+]
 
 export default function Feedback() {
-  const { user } = useAuth()
-  const [state, setState] = useState({ status: 'idle', items: [], message: '' })
-  const guardRef = useRef(null)
-  if (!guardRef.current) guardRef.current = createFeedbackInboxRequestGuard()
-  const canLoad = canViewConsumerFeedback(CONSUMER_FEEDBACK_RUNTIME_ENABLED, user)
-  const userKey = `${user?.uid || 'none'}:${user?.role || 'none'}:${user?.accountStatus || 'none'}`
+  const { user, isFirebaseEnabled } = useAuth()
+  const [feedback, setFeedback] = useState(() => fallbackFeedback(isFirebaseEnabled))
+  const [query, setQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [viewingId, setViewingId] = useState('')
+  const [replyText, setReplyText] = useState('')
+  const [loading, setLoading] = useState(isFirebaseEnabled)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+  const [resolveConfirmOpen, setResolveConfirmOpen] = useState(false)
 
   useEffect(() => {
-    guardRef.current.mount()
-    return () => guardRef.current.unmount()
-  }, [])
-
-  const load = useCallback(async () => {
-    if (!canLoad) return
-    const token = guardRef.current.begin()
-    setState((current) => ({ ...current, status: 'loading', message: '' }))
-    try {
-      const items = await listConsumerFeedback()
-      if (guardRef.current.isCurrent(token)) setState({ status: 'success', items, message: '' })
-    } catch (error) {
-      if (guardRef.current.isCurrent(token)) {
-        setState({ status: 'failure', items: [], message: consumerFeedbackErrorMessage(error?.category) })
-      }
+    if (!isFirebaseEnabled) {
+      setFeedback(fallbackFeedback(false))
+      setLoading(false)
+      return undefined
     }
-  }, [canLoad, userKey])
 
-  useEffect(() => {
-    guardRef.current.invalidate()
-    if (canLoad) void load()
-    return () => guardRef.current.invalidate()
-  }, [canLoad, load, userKey])
+    setLoading(true)
+    return subscribeMarketRecords(
+      'feedback',
+      user,
+      (records) => {
+        setFeedback(records.map(normalizeFeedbackRecord).sort(newestFirst))
+        setLoading(false)
+        setError('')
+      },
+      (firebaseError) => {
+        setFeedback([])
+        setLoading(false)
+        setError(feedbackErrorMessage(firebaseError))
+      },
+    )
+  }, [isFirebaseEnabled, user])
 
-  const sampleItems = useMemo(() => getFeedback(), [])
-  const live = CONSUMER_FEEDBACK_RUNTIME_ENABLED
+  const allFeedback = feedback
 
-  return <div className="page feedback-page">
-    <div className="page-header-row">
-      <div>
-        <h2>User Feedback</h2>
-        <p className="page-header-row__subtitle">{FEEDBACK_MODE === 'online_test' ? 'Read controlled team test feedback' : 'Read Consumer comments submitted to the local Firebase emulators'}</p>
+  const viewing = useMemo(
+    () => allFeedback.find((item) => item.id === viewingId) || null,
+    [allFeedback, viewingId],
+  )
+
+  const filtered = useMemo(() => {
+    const search = query.trim().toLowerCase()
+    return allFeedback.filter((item) => {
+      const searchable = [
+        item.feedbackCode,
+        item.user,
+        item.userEmail,
+        item.subject,
+        item.comment,
+      ].join(' ').toLowerCase()
+      return (!search || searchable.includes(search))
+        && (statusFilter === 'all' || item.status === statusFilter)
+    })
+  }, [allFeedback, query, statusFilter])
+
+  function openFeedback(item) {
+    setViewingId(item.id)
+    setReplyText(item.adminReply?.message || '')
+    setError('')
+    setNotice('')
+  }
+
+  async function handleSaveReply() {
+    if (!viewing || viewing.readOnly || !replyText.trim() || !isFirebaseEnabled) return
+    if (replyText.trim().length > 800) {
+      setError('Keep the administrator response within 800 characters.')
+      return
+    }
+
+    setSaving(true)
+    setError('')
+    setNotice('')
+    try {
+      await replyToFeedback(
+        viewing.id,
+        {
+          message: replyText.trim(),
+          sentByUid: user.uid,
+          sentByName: user.name || 'BFAR-NCR Admin',
+        },
+        feedbackAudit(user, 'Responded to mobile feedback', viewing.feedbackCode),
+      )
+      setNotice('The response was saved to the feedback record.')
+    } catch (firebaseError) {
+      setError(feedbackErrorMessage(firebaseError, 'The response could not be saved.'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleMarkResolved() {
+    if (!viewing || viewing.readOnly || !isFirebaseEnabled || viewing.status === 'resolved') return false
+
+    setSaving(true)
+    setError('')
+    setNotice('')
+    try {
+      await resolveFeedback(
+        viewing.id,
+        { uid: user.uid, name: user.name || 'BFAR-NCR Admin' },
+        feedbackAudit(user, 'Resolved mobile feedback', viewing.feedbackCode),
+      )
+      setNotice('Feedback marked as resolved.')
+      return true
+    } catch (firebaseError) {
+      setError(feedbackErrorMessage(firebaseError, 'The feedback could not be resolved.'))
+      return false
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function closeFeedback() {
+    if (saving) return
+    setViewingId('')
+    setReplyText('')
+    setError('')
+    setNotice('')
+  }
+
+  return (
+    <div className="page feedback-page">
+      <div className="page-header-row feedback-page__header">
+        <div>
+          <p className="workspace-kicker">USER EXPERIENCE</p>
+          <h2>User Feedback</h2>
+          <p className="page-header-row__subtitle">Review feedback submitted through the FRISH Inspector and Consumer apps. Consumer entries are privacy-safe, read-only inbox records.</p>
+        </div>
+        <span className={`feedback-source ${isFirebaseEnabled ? 'feedback-source--live' : ''}`}>
+          <i /> {isFirebaseEnabled ? 'Live updates' : 'Demo records'}
+        </span>
       </div>
-      {canLoad && <button className="btn btn-outline btn-sm" onClick={load} disabled={state.status === 'loading'}>
-        <FiRefreshCw aria-hidden="true" /> {state.status === 'failure' ? 'Retry' : 'Refresh'}
-      </button>}
+
+      <div className="toolbar workspace-toolbar feedback-page__toolbar">
+        <SearchBar value={query} onChange={setQuery} placeholder="Search feedback, user, email, or message..." />
+        <select className="select-input" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter feedback by status">
+          {FILTERS.map((filter) => <option key={filter.value} value={filter.value}>{filter.label}</option>)}
+        </select>
+        {(query || statusFilter !== 'all') && <button className="btn btn-outline btn-sm" onClick={() => { setQuery(''); setStatusFilter('all') }}><FiRotateCcw size={14} /> Clear filters</button>}
+      </div>
+
+      {error && !viewing && <p className="feedback-alert feedback-alert--error" role="alert">{error}</p>}
+
+      <section className="feedback-board">
+        <div className="feedback-board__heading">
+          <div><h3>Inspector feedback</h3><p>Review user experiences and follow up on concerns. New feedback appears here automatically.</p></div>
+          <span>{loading ? 'Loading…' : `${filtered.length} ${filtered.length === 1 ? 'feedback item' : 'feedback items'}`}</span>
+        </div>
+        {loading ? <div className="feedback-board__empty">Loading mobile feedback…</div> : filtered.length ? (
+          <div className="feedback-board__grid">
+            {filtered.map((item) => <FeedbackCard item={item} key={item.id} onOpen={openFeedback} />)}
+          </div>
+        ) : <div className="feedback-board__empty">{error ? 'Feedback is temporarily unavailable.' : 'No feedback matches the selected filters.'}</div>}
+      </section>
+
+      <ConsumerFeedbackInbox />
+
+      <Modal
+        open={Boolean(viewing)}
+        onClose={closeFeedback}
+        title={viewing?.subject || 'Feedback review'}
+        size="lg"
+        footer={viewing && <>
+          {!viewing.readOnly && <button className="btn btn-outline" onClick={() => { setError(''); setResolveConfirmOpen(true) }} disabled={!isFirebaseEnabled || saving || viewing.status === 'resolved'}>{viewing.status === 'resolved' ? 'Resolved' : 'Mark resolved'}</button>}
+          <button className="btn btn-outline" onClick={closeFeedback} disabled={saving}>Close</button>
+        </>}
+      >
+        {viewing && <FeedbackDetail
+          item={viewing}
+          replyText={replyText}
+          onReplyChange={setReplyText}
+          onSaveReply={handleSaveReply}
+          saving={saving}
+          canPersist={isFirebaseEnabled}
+          error={error}
+          notice={notice}
+        />}
+      </Modal>
+      <ConfirmDialog
+        open={resolveConfirmOpen}
+        onClose={() => !saving && setResolveConfirmOpen(false)}
+        onConfirm={handleMarkResolved}
+        title="Mark this feedback as resolved?"
+        message="This confirms that the administrator has completed the required follow-up. The feedback record and any saved response will remain available."
+        details={viewing ? [
+          { label: 'Feedback', value: viewing.feedbackCode },
+          { label: 'Submitted by', value: viewing.user },
+          { label: 'New status', value: 'Resolved' },
+        ] : []}
+        confirmLabel="Mark resolved"
+        pendingLabel="Resolving…"
+        error={error}
+      />
     </div>
+  )
+}
 
-    {FEEDBACK_MODE === 'online_test' && <section className="feedback-notice" role="status"><div><strong>Online test environment</strong><p>Feedback is test data. Submission does not mean BFAR review or reply. Read-only. Production remains disabled.</p></div></section>}
-    {!live && <section className="feedback-notice feedback-notice--sample" role="status">
-      <FiAlertCircle aria-hidden="true" />
-      <div><strong>Sample data</strong><p>The live Consumer feedback inbox is disabled. These placeholder cards are for interface demonstration only.</p></div>
-    </section>}
+function FeedbackCard({ item, onOpen }) {
+  const SentimentIcon = item.sentiment === 'positive' ? FiThumbsUp : item.sentiment === 'negative' ? FiThumbsDown : FiMeh
+  return <article className="feedback-card">
+    <div className="feedback-card__top">
+      <span className={`feedback-card__sentiment feedback-card__sentiment--${item.sentiment}`}><SentimentIcon /></span>
+      <div><strong>{item.subject}</strong><small>{item.feedbackCode} · {item.userType}</small></div>
+      <StatusBadge status={item.status} />
+    </div>
+    <div className="feedback-card__rating" aria-label={`${item.rating || 0} out of 5 stars`}><FiStar /> {item.rating ? `${item.rating}/5` : 'Unrated'}</div>
+    <p>{item.comment}</p>
+    <footer><span><FiClock /> {formatFeedbackTimestamp(item.createdAt)}</span><button className="btn btn-outline btn-sm" onClick={() => onOpen(item)}><FiEye size={13} /> Review</button></footer>
+  </article>
+}
 
-    {live && !canLoad && <section className="feedback-notice feedback-notice--error" role="alert">
-      <FiAlertCircle aria-hidden="true" />
-      <div><strong>Feedback unavailable</strong><p>{FEEDBACK_MODE === 'online_test' ? 'Only an active BFAR administrator with online-test authorization can view feedback.' : 'Only an active BFAR administrator signed in through the local Firebase Auth emulator can view Consumer feedback.'}</p></div>
-    </section>}
+function FeedbackDetail({ item, replyText, onReplyChange, onSaveReply, saving, canPersist, error, notice }) {
+  return <div className="feedback-detail">
+    <dl className="feedback-detail__facts">
+      <Fact label="Feedback code" value={item.feedbackCode} />
+      <Fact label="Submitted by" value={`${item.user} · ${item.userType}`} />
+      <Fact label="Email" value={item.userEmail || 'Not included'} />
+      <Fact label="Rating" value={item.rating ? `${item.rating} out of 5` : 'Not rated'} />
+      <Fact label="Source" value={`${capitalize(item.platform)} · app ${item.appVersion}`} />
+      <Fact label="Submitted" value={formatFeedbackTimestamp(item.createdAt)} />
+      <Fact label="Status" value={<StatusBadge status={item.status} />} />
+    </dl>
+    <blockquote className="feedback-modal-comment">{item.comment}</blockquote>
 
-    {!live && <section className="feedback-board">
-      <div className="feedback-board__heading"><div><h3>Sample feedback</h3><p>Static demonstration content; no Firebase records are shown</p></div><span>{sampleItems.length} samples</span></div>
-      <FeedbackCards items={sampleItems} live={false} />
-    </section>}
+    {item.adminReply?.sentAt && <div className="feedback-saved-reply"><FiMessageSquare /><span><strong>Latest administrator response</strong><small>{item.adminReply.sentByName || 'BFAR-NCR Admin'} · {formatFeedbackTimestamp(item.adminReply.sentAt)}</small><p>{item.adminReply.message}</p></span></div>}
 
-    {canLoad && <section className="feedback-board" aria-busy={state.status === 'loading'}>
-      <div className="feedback-board__heading"><div><h3>Consumer feedback inbox</h3><p>{FEEDBACK_MODE === 'online_test' ? 'Read-only · Online test · newest submissions first' : 'Read-only · Firebase emulators · newest submissions first'}</p></div><span>{state.items.length} records</span></div>
-      {state.status === 'loading' && <div className="feedback-board__state" role="status">Loading Consumer feedback…</div>}
-      {state.status === 'failure' && <div className="feedback-board__state feedback-board__state--error" role="alert"><p>{state.message}</p><button className="btn btn-outline btn-sm" onClick={load}>Retry</button></div>}
-      {state.status === 'success' && state.items.length === 0 && <div className="feedback-board__state">{FEEDBACK_MODE === 'online_test' ? 'No test feedback has been submitted.' : 'No Consumer feedback has been submitted to this emulator.'}</div>}
-      {state.status === 'success' && state.items.length > 0 && <FeedbackCards items={state.items} live />}
-    </section>}
+    {item.readOnly ? <p className="feedback-delivery-note">Consumer identity is intentionally excluded. This controlled inbox is review-only; responses and status changes require a separate approved Consumer follow-up contract.</p> : <><label className="feedback-reply-field">
+      <span>Administrator response</span>
+      <textarea rows={5} maxLength={800} placeholder="Record the response or follow-up action…" value={replyText} onChange={(event) => onReplyChange(event.target.value)} disabled={!canPersist || saving || item.status === 'resolved'} />
+      <small>{replyText.length}/800</small>
+    </label>
+    <p className="feedback-delivery-note">This response is saved as an internal follow-up note. It is not sent to the Inspector app yet.</p>
+    {error && <p className="feedback-alert feedback-alert--error" role="alert">{error}</p>}
+    {notice && <p className="feedback-alert feedback-alert--success" role="status">{notice}</p>}
+    <button className="btn btn-primary" onClick={onSaveReply} disabled={!canPersist || saving || item.status === 'resolved' || !replyText.trim()}><FiMessageSquare /> {saving ? 'Saving…' : 'Save response'}</button></>}
   </div>
+}
+
+function Fact({ label, value }) {
+  return <div><dt>{label}</dt><dd>{value}</dd></div>
+}
+
+function fallbackFeedback(isFirebaseEnabled) {
+  return isFirebaseEnabled ? [] : getFeedback().map(normalizeFeedbackRecord).sort(newestFirst)
+}
+
+function newestFirst(a, b) {
+  return feedbackTimestampValue(b.createdAt) - feedbackTimestampValue(a.createdAt)
+}
+
+function feedbackAudit(user, action, feedbackCode) {
+  return {
+    actorId: user?.uid || 'bfar-admin',
+    actorName: user?.name || 'BFAR-NCR Admin',
+    action,
+    details: feedbackCode,
+    category: 'User Feedback',
+    marketId: 'pasig',
+  }
+}
+
+function feedbackErrorMessage(error, fallback = 'Feedback could not be loaded.') {
+  const code = String(error?.code || '').toLowerCase()
+  const message = String(error?.message || '')
+  if (code.includes('permission-denied') || /insufficient permissions/i.test(message)) {
+    return 'The current Firestore rules do not allow BFAR to manage feedback. Publish the merged feedback rules and try again.'
+  }
+  if (code.includes('unavailable')) return 'Feedback is temporarily unavailable. Check the connection and try again.'
+  return fallback
+}
+
+function capitalize(value) {
+  return String(value || 'Not recorded').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }

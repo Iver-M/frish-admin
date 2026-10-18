@@ -1,9 +1,22 @@
-import { collection, doc, getDoc, getDocs, orderBy, query } from 'firebase/firestore'
+import { collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, where } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
-import { db, functions, isAuthorityEmulatorEnabled } from './firebase.js'
+import { auth, authorityRuntimeMode, consumerRuntime, db, functions, getAuthorityAppCheckToken } from './authorityFirebase.js'
+import { authorityFailureMessage } from './consumerAuthorityPolicy.js'
+import { CLOUD_TRANSITION_ENDPOINT, createAuthorityTransitionClient } from './authorityTransitionClient.js'
+import { createConsumerIntakeClient } from './authorityIntakeClient.js'
 
 export const AUTHORITY_CASES_COLLECTION = 'authorityCases'
-export const AUTHORITY_CASES_RUNTIME_ENABLED = isAuthorityEmulatorEnabled
+export const AUTHORITY_CASES_RUNTIME_MODE = authorityRuntimeMode
+export const AUTHORITY_CASES_RUNTIME_ENABLED = authorityRuntimeMode !== 'disabled'
+export const AUTHORITY_CASES_IS_CLOUD = authorityRuntimeMode === 'cloud_test'
+export const AUTHORITY_RUNTIME_MESSAGE = consumerRuntime.message
+const runtimeEnv = import.meta.env || {}
+export const transitionAuthorityCase = createAuthorityTransitionClient({
+  endpoint: runtimeEnv.VITE_AUTHORITY_TRANSITION_ENDPOINT || (AUTHORITY_CASES_IS_CLOUD ? CLOUD_TRANSITION_ENDPOINT : 'http://127.0.0.1:5001/frish-app2026/asia-southeast1/transitionAuthorityCase'),
+  mode: authorityRuntimeMode,
+  getAuthToken: async () => auth?.currentUser?.getIdToken(true),
+  getAppCheckToken: getAuthorityAppCheckToken,
+})
 
 const AUTHORITY_CASE_VIEW_FIELDS = Object.freeze([
   'id', 'schemaVersion', 'caseId', 'sourceConcernReportId', 'sourceScanId',
@@ -25,27 +38,25 @@ export function sanitizeAuthorityCase(record) {
 
 export function requireAuthorityCasesRuntime() {
   if (AUTHORITY_CASES_RUNTIME_ENABLED) return true
-  const error = new Error('Authority cases are available only when the local emulator feature flag is enabled.')
+  const error = new Error('Consumer authority integration is not enabled for this build.')
   error.code = 'authority-cases-disabled'
   throw error
 }
 
 async function call(name, data = {}) {
   requireAuthorityCasesRuntime()
+  // Refresh the token so newly issued BFAR cloud-test claims are used by the
+  // callable immediately instead of waiting for Firebase Auth's token cache.
+  if (!auth?.currentUser) throw Object.assign(new Error('Sign in again.'), { code: 'unauthenticated' })
+  await auth.currentUser.getIdToken(true)
   return (await httpsCallable(functions, name)(data)).data
 }
 
-export function listPendingConsumerConcerns(options = {}) {
-  return call('listPendingConsumerConcerns', options)
-}
-
-export function getPendingConsumerConcern(reportId) {
-  return call('getPendingConsumerConcern', { reportId })
-}
-
-export function promoteConsumerConcern(reportId, intake = {}) {
-  return call('promoteConsumerConcern', { reportId, ...intake })
-}
+const intakeClient = createConsumerIntakeClient(call)
+export const listPendingConsumerConcerns = intakeClient.list
+export const getPendingConsumerConcern = intakeClient.detail
+export const promoteConsumerConcern = intakeClient.accept
+export const rejectConsumerConcern = intakeClient.reject
 
 export async function listAuthorityCases() {
   requireAuthorityCasesRuntime()
@@ -59,11 +70,33 @@ export async function getAuthorityCase(caseId) {
   return snapshot.exists() ? sanitizeAuthorityCase({ id: snapshot.id, ...snapshot.data() }) : null
 }
 
+export function subscribeAuthorityCases(onData, onError = () => {}, user = null) {
+  requireAuthorityCasesRuntime()
+  const constraints = user?.role === 'market_admin'
+    ? [where('marketId', '==', user.marketId || 'pasig'), where('status', 'in', ['forwarded_lgu', 'resolved'])]
+    : [orderBy('createdAt', 'desc')]
+  return onSnapshot(
+    query(collection(db, AUTHORITY_CASES_COLLECTION), ...constraints),
+    (snapshot) => onData(snapshot.docs
+      .map((record) => sanitizeAuthorityCase({ id: record.id, ...record.data() }))
+      .sort((a, b) => timestampValue(b?.createdAt) - timestampValue(a?.createdAt))),
+    onError,
+  )
+}
+
+export function subscribeAuthorityCase(caseId, onData, onError = () => {}) {
+  requireAuthorityCasesRuntime()
+  return onSnapshot(
+    doc(db, AUTHORITY_CASES_COLLECTION, caseId),
+    (snapshot) => onData(snapshot.exists() ? sanitizeAuthorityCase({ id: snapshot.id, ...snapshot.data() }) : null),
+    onError,
+  )
+}
+
 export function authorityErrorMessage(error) {
-  const code = String(error?.code || '')
-  if (code.includes('permission-denied') || code.includes('unauthenticated')) return 'Your account is not authorized for BFAR Consumer Intake.'
-  if (code.includes('not-found')) return 'This prototype concern no longer exists.'
-  if (code.includes('invalid-argument') || code.includes('failed-precondition')) return error?.message || 'This concern is not eligible for promotion.'
-  if (code.includes('deadline-exceeded') || code.includes('unavailable') || code.includes('internal')) return 'The Firebase emulators are unavailable. Check the local emulator suite and retry.'
-  return error?.message || 'The emulator request failed. Please retry.'
+  return authorityFailureMessage(error)
+}
+
+function timestampValue(value) {
+  return value?.toMillis?.() || (typeof value === 'string' ? Date.parse(value) || 0 : 0)
 }

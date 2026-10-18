@@ -76,8 +76,9 @@
 }
 
 .page-header-row h2 {
-  font-size: 20px;
+  font-size: var(--font-size-2xl);
   font-weight: 700;
+  line-height: var(--line-height-tight);
 }
 
 .toolbar {

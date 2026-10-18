@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FiAlertTriangle, FiBell, FiCheckCircle, FiMenu, FiSearch, FiUsers } from 'react-icons/fi'
+import { FiAlertTriangle, FiBell, FiBriefcase, FiCheckCircle, FiMenu, FiMessageSquare, FiSearch, FiUsers } from 'react-icons/fi'
 import { isFirebaseEnabled } from '../services/firebase.js'
 import { FEEDBACK_MODE, canSubscribeLegacyAdminData } from '../services/feedbackEnvironment.js'
 import { subscribeMarketRecords } from '../services/firestoreService.js'
+import { AUTHORITY_CASES_RUNTIME_ENABLED, subscribeAuthorityCases } from '../services/authorityCasesBoundary.js'
 import { getReportCode } from '../utils/reportCode.js'
 import { markNotificationRead, subscribeNotificationReadState } from '../utils/notificationReadState.js'
+import { normalizeFeedbackRecord } from '../utils/feedbackRecord.js'
 import { normalizeReportRecord } from '../utils/reportRecord.js'
 import { normalizeScanRecord } from '../utils/scanRecord.js'
 import './Topbar.css'
@@ -23,7 +25,10 @@ export default function Topbar({ onMenuClick, user }) {
   const [openPanel, setOpenPanel] = useState(null)
   const [reports, setReports] = useState([])
   const [scans, setScans] = useState([])
+  const [feedback, setFeedback] = useState([])
+  const [authorityCases, setAuthorityCases] = useState([])
   const [readNotificationIds, setReadNotificationIds] = useState(new Set())
+  const [globalQuery, setGlobalQuery] = useState('')
   const navigate = useNavigate()
   const initials = getInitials(user?.name) || 'AD'
   const email = user?.email || (FEEDBACK_MODE === 'online_test'
@@ -34,6 +39,22 @@ export default function Topbar({ onMenuClick, user }) {
   useEffect(() => {
     if (!canSubscribeLegacyAdminData(FEEDBACK_MODE, isFirebaseEnabled)) return undefined
     return subscribeMarketRecords('reports', user, setReports, () => setReports([]))
+  }, [user])
+
+  useEffect(() => {
+    if (!isFirebaseEnabled || !AUTHORITY_CASES_RUNTIME_ENABLED) {
+      setAuthorityCases([])
+      return undefined
+    }
+    return subscribeAuthorityCases(setAuthorityCases, () => setAuthorityCases([]), user)
+  }, [user])
+
+  useEffect(() => {
+    if (!isFirebaseEnabled || user?.role !== 'bfar_admin') {
+      setFeedback([])
+      return undefined
+    }
+    return subscribeMarketRecords('feedback', user, setFeedback, () => setFeedback([]))
   }, [user])
 
   useEffect(
@@ -71,6 +92,16 @@ export default function Topbar({ onMenuClick, user }) {
         icon: FiUsers,
       }]
     }
+    if (user?.role === 'bfar_admin' && report.status === 'under-lgu-action') {
+      return [{
+        id: `lgu-acknowledged-${report.id}`,
+        reportId: report.id,
+        title: 'Pasig LGU acknowledged the case',
+        detail: `${getReportCode(report)} — administrative action has started`,
+        timestamp: report.lguAcknowledgedAt || report.updatedAt || report.createdAt,
+        icon: FiCheckCircle,
+      }]
+    }
     if (user?.role === 'market_admin' && report.status === 'forwarded-lgu') {
       return [{
         id: `forwarded-${report.id}`,
@@ -96,9 +127,26 @@ export default function Topbar({ onMenuClick, user }) {
           icon: FiAlertTriangle,
         }))
       : []
-    return [...reportNotifications, ...scanNotifications]
+    const feedbackNotifications = user?.role === 'bfar_admin'
+      ? feedback.map(normalizeFeedbackRecord)
+        .filter((item) => item.status === 'pending')
+        .map((item) => ({
+          id: `feedback-${item.id}`,
+          path: '/feedback',
+          title: 'New mobile feedback received',
+          detail: `${item.feedbackCode} — ${item.user} · ${item.rating || 0}/5`,
+          timestamp: item.createdAt,
+          icon: FiMessageSquare,
+        }))
+      : []
+    const consumerCaseNotifications = authorityCases.flatMap((record) => {
+      if (user?.role === 'bfar_admin' && record.status === 'submitted') return [{ id: `consumer-case-${record.id}-submitted`, reportId: record.id, path: `/reports?view=consumer-cases&caseId=${encodeURIComponent(record.id)}`, title: 'Consumer authority case needs assignment', detail: `${record.title} — ${record.vendorOrStall || 'Vendor not recorded'}`, timestamp: record.updatedAt || record.createdAt, icon: FiBriefcase }]
+      if (user?.role === 'market_admin' && record.status === 'forwarded_lgu') return [{ id: `consumer-case-${record.id}-lgu`, reportId: record.id, path: `/reports?view=consumer-cases&caseId=${encodeURIComponent(record.id)}`, title: 'Consumer case forwarded by BFAR-NCR', detail: `${record.title} — review the endorsed case`, timestamp: record.updatedAt || record.createdAt, icon: FiBriefcase }]
+      return []
+    })
+    return [...reportNotifications, ...consumerCaseNotifications, ...scanNotifications, ...feedbackNotifications]
       .sort((a, b) => timestampValue(b.timestamp) - timestampValue(a.timestamp))
-  }, [reports, scans, user?.role])
+  }, [authorityCases, feedback, reports, scans, user?.role])
   const unreadNotifications = liveNotifications.filter((item) => !readNotificationIds.has(item.id))
   const panelNotifications = liveNotifications.slice(0, 4)
   const notificationCount = FEEDBACK_MODE === 'online_test'
@@ -110,10 +158,20 @@ export default function Topbar({ onMenuClick, user }) {
     goTo(item.path || `/reports/${item.reportId}`)
   }
 
+  function handleGlobalSearch(event) {
+    event.preventDefault()
+    const search = globalQuery.trim()
+    navigate(search ? `/reports?search=${encodeURIComponent(search)}` : '/reports')
+  }
+
   return <header className="topbar">
     <div className="topbar__left">
       <button className="topbar__menu-btn" onClick={onMenuClick} aria-label="Toggle menu"><FiMenu size={20} /></button>
-      <label className="topbar__search"><FiSearch size={16} /><input placeholder="Search" aria-label="Search ids, reports, vendors" /></label>
+      <form className="topbar__search" role="search" onSubmit={handleGlobalSearch}>
+        <FiSearch size={16} aria-hidden="true" />
+        <input value={globalQuery} onChange={(event) => setGlobalQuery(event.target.value)} placeholder="Search reports" aria-label="Search report code, vendor, species, or inspector" />
+        <button type="submit" aria-label="Run report search">Search</button>
+      </form>
     </div>
     <div className="topbar__right">
       <div className="topbar__control">

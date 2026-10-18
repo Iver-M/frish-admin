@@ -157,10 +157,60 @@ export async function updateInspectorProfile(uid, data, auditLog = null) {
   return batch.commit()
 }
 
+export async function updateOwnAdminProfile(uid, data, auditLog = null) {
+  requireFirebase()
+  const normalizedUid = normalizeInspectorUid(uid)
+  const batch = writeBatch(db)
+  batch.update(doc(db, 'users', normalizedUid), { ...data, updatedAt: serverTimestamp() })
+  if (auditLog) batch.set(doc(collection(db, 'auditLogs')), auditLogPayload(auditLog))
+  return batch.commit()
+}
+
+export async function upsertVendorWithAudit(vendorId, data, auditLog) {
+  requireFirebase()
+  const normalizedId = normalizeRecordId(vendorId, 'vendor')
+  const batch = writeBatch(db)
+  batch.set(doc(db, 'vendors', normalizedId), { ...data, updatedAt: serverTimestamp() }, { merge: true })
+  batch.set(doc(collection(db, 'auditLogs')), auditLogPayload(auditLog))
+  return batch.commit()
+}
+
 export async function updateReportWithAudit(reportId, data, auditLog) {
   requireFirebase()
   const batch = writeBatch(db)
-  batch.update(doc(db, 'reports', reportId), { ...data, updatedAt: serverTimestamp() })
+  const workflowData = { ...data, updatedAt: serverTimestamp() }
+  if (data.status === 'under-review') workflowData.bfarAcknowledgedAt = serverTimestamp()
+  if (data.status === 'assigned') workflowData.assignedAt = serverTimestamp()
+  if (data.status === 'in progress') workflowData.inProgressAt = serverTimestamp()
+  if (data.status === 'forwarded-lgu') workflowData.forwardedAt = serverTimestamp()
+  if (data.status === 'under-lgu-action') workflowData.lguAcknowledgedAt = serverTimestamp()
+  if (data.status === 'resolved') workflowData.resolvedAt = serverTimestamp()
+  batch.update(doc(db, 'reports', reportId), workflowData)
+  batch.set(doc(collection(db, 'auditLogs')), auditLogPayload(auditLog))
+  return batch.commit()
+}
+
+export async function replyToFeedback(feedbackId, reply, auditLog) {
+  requireFirebase()
+  const batch = writeBatch(db)
+  batch.update(doc(db, 'feedback', feedbackId), {
+    status: 'in-progress',
+    adminReply: { ...reply, sentAt: serverTimestamp() },
+    updatedAt: serverTimestamp(),
+  })
+  batch.set(doc(collection(db, 'auditLogs')), auditLogPayload(auditLog))
+  return batch.commit()
+}
+
+export async function resolveFeedback(feedbackId, resolvedBy, auditLog) {
+  requireFirebase()
+  const batch = writeBatch(db)
+  batch.update(doc(db, 'feedback', feedbackId), {
+    status: 'resolved',
+    resolvedBy,
+    resolvedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
   batch.set(doc(collection(db, 'auditLogs')), auditLogPayload(auditLog))
   return batch.commit()
 }
@@ -202,6 +252,16 @@ function normalizeInspectorUid(uid) {
     throw error
   }
   return normalizedUid
+}
+
+function normalizeRecordId(id, label) {
+  const normalizedId = String(id || '').trim()
+  if (!normalizedId || normalizedId.includes('/')) {
+    const error = new Error(`The ${label} record ID is invalid.`)
+    error.code = 'invalid-argument'
+    throw error
+  }
+  return normalizedId
 }
 
 function auditLogPayload({ actorId, actorName, action, details, category, marketId = 'pasig' }) {

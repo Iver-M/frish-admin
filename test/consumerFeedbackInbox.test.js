@@ -9,7 +9,7 @@ import {
   validateFeedbackProjection,
 } from '../src/services/consumerFeedbackInbox.js'
 
-const pageSource = await readFile(new URL('../src/pages/admin/feedback/Feedback.jsx', import.meta.url), 'utf8')
+const pageSource = await readFile(new URL('../src/pages/admin/feedback/ConsumerFeedbackInbox.jsx', import.meta.url), 'utf8')
 const layoutSource = await readFile(new URL('../src/layout/AdminLayout.jsx', import.meta.url), 'utf8')
 const sidebarSource = await readFile(new URL('../src/components/Sidebar.jsx', import.meta.url), 'utf8')
 

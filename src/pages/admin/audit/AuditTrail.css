@@ -1,6 +1,9 @@
 /* Column widths read better when Action/Details aren't allowed to force
    the table too wide on smaller screens. */
 .audit-error { background: #fff0ef; border: 1px solid #f0c1bd; border-radius: 8px; color: #a23832; font-size: 13px; margin: 0 0 14px; padding: 10px 12px; }
+.audit-page { max-width: 1280px; }
+.audit-live-indicator { align-items: center; color: var(--color-success); display: inline-flex; font-size: 12px; font-weight: 700; gap: 7px; }
+.audit-live-indicator span { background: var(--color-success); border-radius: 50%; box-shadow: 0 0 0 4px rgba(35, 126, 77, .1); height: 7px; width: 7px; }
 .audit-page .stat-grid { display: grid; gap: 14px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .audit-page .stat-card { gap: 10px; min-width: 0; padding: 16px; }
 .audit-page .stat-card__value { font-size: 28px; }

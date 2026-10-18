@@ -1,4 +1,5 @@
-import { auth, isAuthorityEmulatorEnabled, isFirebaseEnabled } from './firebase.js'
+import { isFirebaseEnabled } from './firebase.js'
+import { auth, isAuthorityEmulatorEnabled } from './authorityFirebase.js'
 
 export const AUTHORITY_EVIDENCE_MAX_BYTES = 10 * 1024 * 1024
 export const AUTHORITY_EVIDENCE_TYPES = Object.freeze(['eyesAndSkin', 'gills'])

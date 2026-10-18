@@ -24,7 +24,7 @@ test('original Admin routes and role-based sidebar remain available in online fe
   for (const route of ['/dashboard', '/assessments', '/reports', '/inspectors', '/audit-trail', '/admins', '/profile', '/notifications']) {
     assert.match(app, new RegExp(`path=["']${route.replace('/', '\\/')}`))
   }
-  for (const label of ['Dashboard', 'Freshness Assessments', 'Reports', 'Inspectors', 'Audit Trail', 'Manage Admins', 'Profile']) {
+  for (const label of ['Dashboard', 'Freshness Assessments', 'Report Management', 'Inspectors', 'Audit Trail', 'Manage Admins', 'Profile']) {
     assert.match(sidebar, new RegExp(`label: '${label}'`))
   }
   assert.doesNotMatch(sidebar, /FEEDBACK_MODE.*item\.to === '\/feedback'/)
@@ -43,24 +43,34 @@ test('feedback authorization stays route-specific and original sign-out and role
   assert.match(feedback, /feedbackOnlineTest !== 'consumer-feedback-v1'/)
 })
 
-test('Admin uses cloud Firebase for legacy pages without enabling Consumer authority modules', () => {
+test('Admin uses cloud Firebase for legacy pages while Consumer views keep their own runtime gates', async () => {
   assert.match(firebase, /export const db = app \? getFirestore\(app\) : null/)
   assert.match(firebase, /export const storage = app \? getStorage\(app\) : null/)
   assert.match(firebase, /export const isAuthorityEmulatorEnabled = false/)
   assert.doesNotMatch(firebase, /connect(?:Auth|Firestore|Functions|Storage)Emulator/)
   assert.match(environment, /PRODUCTION_FIREBASE_APPROVED = false/)
-  assert.match(sidebar, /AUTHORITY_CASES_RUNTIME_ENABLED \? \[/)
+  const { AUTHORITY_CASES_RUNTIME_ENABLED } = await import('../src/services/authorityCasesBoundary.js')
+  assert.equal(AUTHORITY_CASES_RUNTIME_ENABLED, false)
+  assert.match(sidebar, /to: '\/reports', label: 'Report Management'/)
+  assert.doesNotMatch(sidebar, /to: '\/consumer-intake'|to: '\/authority-cases'/)
 })
 
 test('only the feedback module invokes the feedback callable and never accesses Firestore or Storage directly', async () => {
   assert.match(feedback, /httpsCallable\(functions, 'listConsumerFeedback'\)/)
   assert.doesNotMatch(feedback, /firebase\/(firestore|storage)/)
   assert.doesNotMatch(feedback, /collection\(|getDocs\(|onSnapshot\(|getStorage\(|uploadBytes\(/)
+  const adapter = await read('src/services/consumerFeedbackBoundary.js')
+  const consumerSection = await read('src/pages/admin/feedback/ConsumerFeedbackInbox.jsx')
+  for (const source of [adapter, consumerSection]) {
+    assert.doesNotMatch(source, /firebase\/(firestore|storage|functions)/)
+    assert.doesNotMatch(source, /httpsCallable\(|collection\(|getDocs\(|onSnapshot\(|getStorage\(|uploadBytes\(/)
+  }
+  assert.match(adapter, /from '\.\/consumerFeedbackInbox\.js'/)
   const files = await sourceFiles(path.join(root, 'src'))
   const offenders = []
   for (const file of files) {
     const relative = path.relative(root, file).replaceAll('\\', '/')
-    if (relative === 'src/services/consumerFeedbackInbox.js' || relative === 'src/pages/admin/feedback/Feedback.jsx') continue
+    if (['src/services/consumerFeedbackInbox.js', 'src/services/consumerFeedbackBoundary.js', 'src/pages/admin/feedback/ConsumerFeedbackInbox.jsx'].includes(relative)) continue
     if ((await readFile(file, 'utf8')).includes('listConsumerFeedback')) offenders.push(relative)
   }
   assert.deepEqual(offenders, [])
