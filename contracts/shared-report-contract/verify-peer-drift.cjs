@@ -8,8 +8,14 @@ const peerRoot = process.argv[2]
 if (!peerRoot) throw new Error('Usage: node verify-peer-drift.cjs <peer-repository-root>')
 
 const localContract = __dirname
-const peerContract = path.resolve(peerRoot, 'contracts', 'shared-report-contract')
 const files = ['fixtures.json', 'validator.cjs']
+const candidates = [peerRoot, path.join(peerRoot, 'shared')]
+  .map(root => path.resolve(root, 'contracts', 'shared-report-contract'))
+  .filter(directory => files.every(file => fs.statSync(path.join(directory, file), { throwIfNoEntry: false })?.isFile()))
+if (candidates.length !== 1) {
+  throw new Error('Expected exactly one complete peer contract. Check contracts/shared-report-contract and shared/contracts/shared-report-contract. Pass the shared directory explicitly if both layouts exist.')
+}
+const [peerContract] = candidates
 for (const file of files) {
   const local = fs.readFileSync(path.join(localContract, file))
   const peer = fs.readFileSync(path.join(peerContract, file))
