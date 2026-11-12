@@ -10,8 +10,15 @@ const local = path.resolve(import.meta.dirname, '..', contractPath)
 const files = ['fixtures.json', 'validator.cjs']
 
 function makePeer(t) {
-  const root = mkdtempSync(path.join(tmpdir(), 'frish-peer-'))
-  t.after(() => rmSync(root, { recursive: true }))
+  const parent = path.resolve(tmpdir())
+  const prefix = 'frish-peer-'
+  const root = mkdtempSync(path.join(parent, prefix))
+  t.after(() => {
+    const target = path.resolve(root)
+    assert.equal(path.dirname(target), parent)
+    assert.ok(path.basename(target).startsWith(prefix))
+    rmSync(target, { recursive: true })
+  })
   return root
 }
 
