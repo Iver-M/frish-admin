@@ -84,11 +84,18 @@ export function subscribeAuthorityCases(onData, onError = () => {}, user = null)
   )
 }
 
-export function subscribeAuthorityCase(caseId, onData, onError = () => {}) {
+export function subscribeAuthorityCase(caseId, onData, onError = () => {}, onWaiting = () => {}) {
   requireAuthorityCasesRuntime()
   return onSnapshot(
     doc(db, AUTHORITY_CASES_COLLECTION, caseId),
-    (snapshot) => onData(snapshot.exists() ? sanitizeAuthorityCase({ id: snapshot.id, ...snapshot.data() }) : null),
+    { includeMetadataChanges: true },
+    (snapshot) => {
+      if (snapshot.metadata.fromCache || snapshot.metadata.hasPendingWrites) {
+        onWaiting()
+        return
+      }
+      onData(snapshot.exists() ? sanitizeAuthorityCase({ id: snapshot.id, ...snapshot.data() }) : null)
+    },
     onError,
   )
 }

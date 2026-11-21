@@ -51,6 +51,11 @@ export default function AuthorityCaseActions({ record, user }) {
   }
   async function submit() {
     if (busy.current || !command || !journalReady) return
+    if (!attempted.current && (command.expectedVersion !== record.version || !actions.includes(command.transition))) {
+      setCommand(null)
+      setError('The recorded case or your permissions changed. Review the case before preparing another action.')
+      return false
+    }
     busy.current = true; attempted.current = true; setPending(true); setError('')
     try {
       // Persist before sending. No token, private Consumer facts or evidence is stored.
@@ -69,7 +74,7 @@ export default function AuthorityCaseActions({ record, user }) {
     return false
   }
   return <section className="authority-case-actions" aria-label="Consumer case actions" aria-busy={pending}>
-    <h3>Permitted case actions</h3>
+    <h3>Actions</h3>
     <p>Every action is checked by the Consumer backend against your signed role, current account, market, assignment and case version.</p>
     {error && <p role="alert">{error}</p>}
     {confirmed && <p role="status">Server confirmed {CASE_ACTIONS[Object.keys(CASE_ACTIONS).find(name => CASE_ACTIONS[name].to === confirmed.status)]?.label} (version {confirmed.version}). {record.version < confirmed.version ? 'Waiting for the recorded case to update…' : 'The recorded case is up to date.'}</p>}
