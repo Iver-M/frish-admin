@@ -24,6 +24,24 @@ export function consumerPermissions(claims = {}, mode = 'disabled') {
     cases: Boolean(active && ['bfar_admin', 'lgu', 'lgu_admin', 'market_admin'].includes(claims.role)) }
 }
 
+const FORWARDING_WORKFLOW = [
+  ['prototype_saved', 'Saved'],
+  ['submitted', 'Accepted'],
+  ['assigned', 'Inspector assigned'],
+  ['in_progress', 'Investigation'],
+  ['forwarded_lgu', 'Forwarded to LGU'],
+  ['resolved', 'Resolved'],
+]
+
+export function consumerWorkflow(status) {
+  if (status === 'rejected') return [FORWARDING_WORKFLOW[0], ['rejected', 'Not accepted']]
+  if (status === 'closed_no_violation') {
+    return [...FORWARDING_WORKFLOW.slice(0, 4), ['closed_no_violation', 'Closed — no violation']]
+  }
+  return FORWARDING_WORKFLOW
+}
+
+
 export const CASE_ACTIONS = Object.freeze({
   assign_inspector: { from: 'submitted', to: 'assigned', roles: ['bfar_admin'], label: 'Assign inspector' },
   start_investigation: { from: 'assigned', to: 'in_progress', roles: ['bfar_admin', 'inspector'], label: 'Start investigation' },

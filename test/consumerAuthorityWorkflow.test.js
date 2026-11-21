@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
-import { authorityFailureMessage, consumerPermissions, evaluateConsumerRuntime, permittedCaseActions, formatConsumerDate } from '../src/services/consumerAuthorityPolicy.js'
+import { authorityFailureMessage, consumerPermissions, evaluateConsumerRuntime, permittedCaseActions, formatConsumerDate, consumerWorkflow } from '../src/services/consumerAuthorityPolicy.js'
 import { approvedTransitionEndpoint, CLOUD_TRANSITION_ENDPOINT, createAuthorityTransitionClient, createCaseCommand, transitionJournal } from '../src/services/authorityTransitionClient.js'
 import { createConsumerIntakeClient } from '../src/services/authorityIntakeClient.js'
 
@@ -44,6 +44,7 @@ test('actions follow backend role, status, assignment and version restrictions; 
   assert.deepEqual(permittedCaseActions({ ...record, status: 'forwarded_lgu' }, { role: 'market_admin' }), [])
   assert.deepEqual(permittedCaseActions({ ...record, status: 'forwarded_lgu' }, { role: 'lgu' }), ['resolve'])
   assert.deepEqual(permittedCaseActions({ ...record, status: 'assigned', assignedInspectorId: 'i1' }, { role: 'inspector', uid: 'i2' }), [])
+  assert.deepEqual(permittedCaseActions({ ...record, status: 'forwarded_lgu', marketId: 'other' }, { role: 'lgu' }), [])
   assert.deepEqual(permittedCaseActions({ ...record, status: 'resolved' }, { role: 'lgu' }), [])
   assert.deepEqual(permittedCaseActions({ ...record, version: undefined }, bfar), [])
 })
@@ -167,4 +168,13 @@ test('report failure branches exclude the successful empty/list/detail branch an
   }
   const source = await readFile(new URL('../src/pages/admin/reports/Reports.jsx', import.meta.url), 'utf8')
   assert.doesNotMatch(source, /AUTHORITY_CASES_RUNTIME_ENABLED/)
+})
+
+
+test('the report strip follows the recorded terminal branch', () => {
+  const stages = status => consumerWorkflow(status).map(([key]) => key)
+  assert.deepEqual(stages('prototype_saved'), ['prototype_saved', 'submitted', 'assigned', 'in_progress', 'forwarded_lgu', 'resolved'])
+  assert.deepEqual(stages('rejected'), ['prototype_saved', 'rejected'])
+  assert.deepEqual(stages('closed_no_violation'), ['prototype_saved', 'submitted', 'assigned', 'in_progress', 'closed_no_violation'])
+  assert.equal(stages('resolved').at(-2), 'forwarded_lgu')
 })
