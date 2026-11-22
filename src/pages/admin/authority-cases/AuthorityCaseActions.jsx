@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import ConfirmDialog from '../../../components/ConfirmDialog.jsx'
+import { useAuth } from '../../../context/AuthContext.jsx'
 import { listActiveInspectors } from '../../../services/firestoreService.js'
 import { AUTHORITY_CASES_RUNTIME_MODE, authorityErrorMessage, transitionAuthorityCase } from '../../../services/authorityCasesBoundary.js'
 import { createCaseCommand, transitionJournal } from '../../../services/authorityTransitionClient.js'
 import { CASE_ACTIONS, permittedCaseActions } from '../../../services/consumerAuthorityPolicy.js'
 
 export default function AuthorityCaseActions({ record, user }) {
+  const { logout } = useAuth()
   const [inspectors, setInspectors] = useState([])
   const [inspectorId, setInspectorId] = useState('')
   const [inspectorError, setInspectorError] = useState('')
@@ -13,6 +15,7 @@ export default function AuthorityCaseActions({ record, user }) {
   const [confirmed, setConfirmed] = useState(null)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
+  const [needsSignIn, setNeedsSignIn] = useState(false)
   const busy = useRef(false)
   const mounted = useRef(true)
   const attempted = useRef(false)
@@ -46,7 +49,7 @@ export default function AuthorityCaseActions({ record, user }) {
       const assignment = transition === 'assign_inspector' && inspector
         ? { inspectorId: inspector.id, inspectorName: inspector.name || inspector.displayName || 'Inspector' } : null
       setCommand(createCaseCommand(record, transition, assignment))
-      setError(''); setConfirmed(null); attempted.current = false
+      setError(''); setConfirmed(null); setNeedsSignIn(false); attempted.current = false
     } catch (prepareError) { setError(authorityErrorMessage(prepareError)) }
   }
   async function submit() {
@@ -67,7 +70,10 @@ export default function AuthorityCaseActions({ record, user }) {
       try { journal.current.clear() }
       catch { setJournalReady(false); setError('The server confirmed this action, but this tab could not clear its retained request. Restore session storage and refresh before preparing another action.') }
     } catch (actionError) {
-      if (mounted.current) setError(authorityErrorMessage(actionError))
+      if (mounted.current) {
+        setNeedsSignIn(actionError?.code === 'recent-sign-in-required')
+        setError(authorityErrorMessage(actionError))
+      }
     } finally { busy.current = false; if (mounted.current) setPending(false) }
     // ConfirmDialog otherwise calls onClose after our promise settles, which
     // would discard an unconfirmed command even when its response was lost.
@@ -84,7 +90,17 @@ export default function AuthorityCaseActions({ record, user }) {
       <div className="intake-actions">{actions.map(transition => <button key={transition} className="btn btn-primary" disabled={pending || (transition === 'assign_inspector' && (!inspectorId || Boolean(inspectorError)))} onClick={() => prepare(transition)}>{CASE_ACTIONS[transition].label}</button>)}</div>
       {!actions.length && <p>{record.status === 'forwarded_lgu' ? 'Resolution requires an authorized LGU account with the signed lgu role. BFAR cannot resolve this case.' : 'No workflow action is available for this signed role and recorded status.'}</p>}
     </>}
-    {command && attempted.current && !pending && <div role="status"><p>This request has not been confirmed. Retrying sends the same request ID, version and payload. Review the recorded case before abandoning a request; it may already have completed.</p><button className="btn btn-primary" onClick={submit}>Retry same action</button><button className="btn btn-outline" onClick={() => { try { journal.current.clear(); setCommand(null); setError('') } catch { setError('Unable to clear the retained request. Keep this tab and retry later.') } }}>Abandon retained request</button></div>}
+    {command && attempted.current && !pending && <div role="status">
+      {needsSignIn ? (
+        <button className="btn btn-primary" onClick={logout}>Sign in again</button>
+      ) : (
+        <>
+          <p>This request has not been confirmed. Retrying sends the same request ID, version and payload. Review the recorded case before abandoning a request; it may already have completed.</p>
+          <button className="btn btn-primary" onClick={submit}>Retry same action</button>
+        </>
+      )}
+      <button className="btn btn-outline" onClick={() => { try { journal.current.clear(); setCommand(null); setError(''); setNeedsSignIn(false) } catch { setError('Unable to clear the retained request. Keep this tab and retry later.') } }}>Abandon retained request</button>
+    </div>}
     <ConfirmDialog open={Boolean(command) && !attempted.current} title={command ? `${CASE_ACTIONS[command.transition].label}?` : 'Confirm action'} message={`Apply this action to recorded version ${command?.expectedVersion ?? ''}? Only a confirmed server response establishes completion.`} confirmLabel="Confirm action" pendingLabel="Waiting for server…" pending={pending} onConfirm={submit} onClose={() => { if (!busy.current) setCommand(null) }} />
     {pending && <p role="status">Waiting for server confirmation…</p>}
   </section>

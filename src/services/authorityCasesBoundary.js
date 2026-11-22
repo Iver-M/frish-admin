@@ -14,7 +14,8 @@ const runtimeEnv = import.meta.env || {}
 export const transitionAuthorityCase = createAuthorityTransitionClient({
   endpoint: runtimeEnv.VITE_AUTHORITY_TRANSITION_ENDPOINT || (AUTHORITY_CASES_IS_CLOUD ? CLOUD_TRANSITION_ENDPOINT : 'http://127.0.0.1:5001/frish-app2026/asia-southeast1/transitionAuthorityCase'),
   mode: authorityRuntimeMode,
-  getAuthToken: async () => auth?.currentUser?.getIdToken(true),
+  getAuthSession: () => auth?.currentUser,
+  getAuthToken: user => user.getIdToken(true),
   getAppCheckToken: getAuthorityAppCheckToken,
 })
 

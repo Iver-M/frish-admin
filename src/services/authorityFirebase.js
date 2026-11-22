@@ -23,9 +23,9 @@ const client = createAuthorityFirebaseClient({ mode: authorityRuntimeMode, fireb
     connectAuthEmulator, connectFirestoreEmulator, connectStorageEmulator, connectFunctionsEmulator } })
 export const { auth, db, storage, functions } = client
 let authorityAppCheck = null
-export async function getAuthorityAppCheckToken() {
+export async function getAuthorityAppCheckToken(forceRefresh = false) {
   if (!client.app || !isAuthorityCloudTestEnabled || !runtimeEnv.VITE_AUTHORITY_APP_CHECK_SITE_KEY || typeof window === 'undefined') return null
   // Optional App Check configuration never runs during Inspector/Admin startup.
   authorityAppCheck ||= initializeAppCheck(client.app, { provider: new ReCaptchaV3Provider(runtimeEnv.VITE_AUTHORITY_APP_CHECK_SITE_KEY), isTokenAutoRefreshEnabled: true })
-  return (await getToken(authorityAppCheck, false)).token
+  return (await getToken(authorityAppCheck, forceRefresh)).token
 }

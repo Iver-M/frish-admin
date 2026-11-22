@@ -61,9 +61,11 @@ export function permittedCaseActions(record, actor) {
 export function authorityFailureMessage(error) {
   const code = String(error?.code || '').replace(/^functions\//, '').replace(/^firestore\//, '')
   if (code === 'authority-cases-disabled') return 'Consumer integration is disabled or its environment is incomplete. Ask the project owner to check this build configuration.'
+  if (code === 'recent-sign-in-required') return 'Your sign-in is too old for this case action. Sign in again with the same account, then reopen this case to retry the saved action.'
   if (code === 'permission-denied') return 'Consumer access was denied. Portal access does not grant Consumer permissions. Ask the project owner to check signed staff claims, current account, market scope and operation policy.'
   if (code === 'unauthenticated') return 'Consumer credentials could not be verified. Sign in again; if it persists, ask the owner to check App Check and the approved web origin.'
   if (code === 'app-check-required') return 'Case actions require the approved web App Check configuration. Ask the project owner to complete it.'
+  if (code === 'stale-app-check') return 'The portal could not refresh its case-action verification. Reload the case and retry the saved action.'
   if (code === 'request-storage-unavailable') return 'This action could not be retained in this browser tab. No new request was sent. Restore session storage before retrying.'
   if (code === 'not-found' && error?.operation === 'intake-detail') return 'This Consumer concern no longer exists.'
   if (code === 'not-found') return 'The Consumer endpoint was not found. Ask the owner to check its deployment, project and region.'
