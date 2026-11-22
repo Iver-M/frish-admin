@@ -587,17 +587,9 @@ service cloud.firestore {
         && request.auth.token.marketIds.hasAny(['pasig']);
     }
 
-    function isInspectorAuthority() {
-      return hasActiveClaim('inspector');
-    }
-
     match /authorityCases/{caseId} {
-      allow get, list: if isBfarAuthority()
-        || (isLguAuthority()
-          && resource.data.marketId == 'pasig'
-          && resource.data.status in ['forwarded_lgu', 'resolved'])
-        || (isInspectorAuthority()
-          && resource.data.assignedInspectorId == request.auth.uid);
+      // Inspectors use the protected interface because raw IDs include a Consumer UID.
+      allow get, list: if isBfarAuthority();
       // Authority-case lifecycle writes are trusted-backend transactions only.
       // Client SDK calls are denied even when their transition shape is valid.
       allow create, update, delete: if false;
@@ -623,15 +615,21 @@ service cloud.firestore {
     }
 
     match /authorityCaseAudit/{eventId} {
-      allow read: if isBfarAuthority()
-        || (isLguAuthority()
-          && resource.data.marketId == 'pasig'
-          && resource.data.nextStatus in ['forwarded_lgu', 'resolved']);
+      allow read: if isBfarAuthority();
       allow create, update, delete: if false;
     }
 
     match /authorityEvidenceAccessAudit/{eventId} {
       allow read, write: if false;
+    }
+
+    // Raw case and audit IDs can contain a Consumer UID. LGU reads use the
+    // trusted backend's view, whose document ID is an opaque case reference.
+    match /authorityLguCaseViews/{caseRef} {
+      allow get, list: if isLguAuthority()
+        && resource.data.marketId == 'pasig'
+        && resource.data.status in ['forwarded_lgu', 'resolved'];
+      allow write: if false;
     }
   }
 }

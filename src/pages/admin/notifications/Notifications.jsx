@@ -3,7 +3,7 @@ import { FiAlertCircle, FiAlertTriangle, FiBell, FiBriefcase, FiCheckCircle, FiF
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../../context/AuthContext.jsx'
 import { subscribeMarketRecords } from '../../../services/firestoreService.js'
-import { AUTHORITY_CASES_RUNTIME_ENABLED, authorityErrorMessage, subscribeAuthorityCases } from '../../../services/authorityCasesBoundary.js'
+import { AUTHORITY_CASES_RUNTIME_ENABLED, authorityErrorMessage, isAuthorityCaseRefForUser, subscribeAuthorityCases } from '../../../services/authorityCasesBoundary.js'
 import { getReportCode } from '../../../utils/reportCode.js'
 import { markNotificationRead, markNotificationsRead, subscribeNotificationReadState } from '../../../utils/notificationReadState.js'
 import { normalizeFeedbackRecord } from '../../../utils/feedbackRecord.js'
@@ -38,8 +38,9 @@ export default function Notifications() {
     }
     return subscribeAuthorityCases(
       setAuthorityCases,
-      (firebaseError) => setError(authorityErrorMessage(firebaseError)),
+      (firebaseError) => { setAuthorityCases([]); setError(authorityErrorMessage(firebaseError)) },
       user,
+      () => setAuthorityCases([]),
     )
   }, [isFirebaseEnabled, user])
 
@@ -142,7 +143,7 @@ export default function Notifications() {
     const consumerCaseNotifications = authorityCases.flatMap((record) => {
       if (user?.role === 'bfar_admin' && record.status === 'submitted') return [{ id: `consumer-case-${record.id}-submitted`, title: 'Consumer concern accepted for review', detail: `${record.title} — assign an Inspector for validation`, createdAt: record.updatedAt || record.createdAt, icon: FiBriefcase, kind: 'alert', path: `/reports?view=consumer-cases&caseId=${encodeURIComponent(record.id)}` }]
       if (user?.role === 'bfar_admin' && record.status === 'in_progress') return [{ id: `consumer-case-${record.id}-progress`, title: 'Consumer case validation in progress', detail: `${record.assignedInspectorName || 'Assigned Inspector'} is validating ${record.title}`, createdAt: record.updatedAt || record.createdAt, icon: FiBriefcase, kind: 'info', path: `/reports?view=consumer-cases&caseId=${encodeURIComponent(record.id)}` }]
-      if (user?.role === 'market_admin' && record.status === 'forwarded_lgu') return [{ id: `consumer-case-${record.id}-lgu`, title: 'Consumer case forwarded by BFAR-NCR', detail: `${record.title} — ${record.vendorOrStall || 'Vendor not recorded'}`, createdAt: record.updatedAt || record.createdAt, icon: FiBriefcase, kind: 'warning', path: `/reports?view=consumer-cases&caseId=${encodeURIComponent(record.id)}` }]
+      if (user?.role === 'market_admin' && record.status === 'forwarded_lgu' && isAuthorityCaseRefForUser(record.id, user)) return [{ id: `consumer-case-${record.id}-lgu`, title: 'Consumer case forwarded by BFAR-NCR', detail: `${record.title} — ${record.vendorOrStall || 'Vendor not recorded'}`, createdAt: record.updatedAt || record.createdAt, icon: FiBriefcase, kind: 'warning', path: `/reports?view=consumer-cases&caseId=${encodeURIComponent(record.id)}` }]
       return []
     })
     return [...reportNotifications, ...consumerCaseNotifications, ...scanNotifications, ...feedbackNotifications]

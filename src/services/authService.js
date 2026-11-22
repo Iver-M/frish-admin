@@ -4,6 +4,7 @@ import {
   GoogleAuthProvider,
   getIdTokenResult,
   onAuthStateChanged,
+  onIdTokenChanged,
   reauthenticateWithCredential,
   signInWithEmailAndPassword,
   signInWithPopup,
@@ -95,10 +96,10 @@ export async function signInAdminWithCredentials(email, password) {
 
 export const signInAdmin = signInAdminWithCredentials
 
-export async function getAdminProfile(firebaseUser) {
+export async function getAdminProfile(firebaseUser, verifiedToken = null) {
   // Refresh claims for explicitly selected Consumer/feedback cloud-test modes.
   // Portal sessions continue to use the Firestore profile as the role source.
-  const token = await getIdTokenResult(firebaseUser, authorityRuntimeMode === 'cloud_test' || FEEDBACK_MODE === 'online_test')
+  const token = verifiedToken ?? await getIdTokenResult(firebaseUser, authorityRuntimeMode === 'cloud_test' || FEEDBACK_MODE === 'online_test')
   const onlineToken = FEEDBACK_MODE === 'online_test' ? token : null
   let consumerClaims = authorityRuntimeMode === 'cloud_test' ? token.claims : {}
   if (authorityRuntimeMode === 'emulator' && authorityAuth?.currentUser) {
@@ -156,8 +157,11 @@ export async function getAdminProfile(firebaseUser) {
 }
 
 export async function refreshAdminSession() {
-  if (!isFirebaseEnabled || !auth.currentUser) return null
-  return getAdminProfile(auth.currentUser)
+  const firebaseUser = auth?.currentUser
+  if (!isFirebaseEnabled || !firebaseUser) return null
+  const profile = await getAdminProfile(firebaseUser)
+  if (auth.currentUser !== firebaseUser) throw new Error('Your admin session changed. Open the page again.')
+  return profile
 }
 
 export async function changeAdminPassword(currentPassword, newPassword) {
@@ -181,26 +185,59 @@ export async function changeAdminPassword(currentPassword, newPassword) {
 
 export function observeAdminSession(callback) {
   if (!isFirebaseEnabled) return () => {}
+  const cloud = authorityRuntimeMode === 'cloud_test'
+  const observe = cloud ? onIdTokenChanged : onAuthStateChanged
   let portalUid = null
+  let publishedScope = null
+  let sessionVersion = 0
 
-  return onAuthStateChanged(auth, async (firebaseUser) => {
-    if ((!firebaseUser || (portalUid && portalUid !== firebaseUser.uid)) && authorityAuth && authorityAuth !== auth) {
+  const unsubscribe = observe(auth, async (firebaseUser) => {
+    const current = ++sessionVersion
+    const uid = firebaseUser?.uid || null
+    const switched = portalUid !== null && portalUid !== uid
+    portalUid = uid
+    if (cloud && switched && publishedScope && uid) {
+      publishedScope = null
+      callback(null, true)
+    }
+    if ((!uid || switched) && authorityAuth && authorityAuth !== auth) {
       await signOut(authorityAuth).catch(() => {})
     }
-    portalUid = firebaseUser?.uid || null
+    if (current !== sessionVersion) return
     if (!firebaseUser) {
+      publishedScope = null
       callback(null)
       return
     }
 
     try {
-      callback(await getAdminProfile(firebaseUser))
-    } catch (error) {
+      // The token observer already has the updated Firebase session. Forcing
+      // another refresh here would notify the observer again.
+      const token = cloud ? await getIdTokenResult(firebaseUser) : null
+      if (current !== sessionVersion) return
+      const permissions = cloud ? consumerPermissions(token.claims, authorityRuntimeMode) : null
+      const scope = permissions && JSON.stringify([uid, permissions.role, permissions.cases])
+      if (cloud && publishedScope === scope) return
+      if (publishedScope) {
+        publishedScope = null
+        callback(null, true)
+      }
+      const profile = await getAdminProfile(firebaseUser, token)
+      if (current !== sessionVersion) return
+      publishedScope = scope
+      callback(profile)
+    } catch {
+      if (current !== sessionVersion) return
       console.error('Unable to verify the FRISH admin session.')
-      await signOut(auth).catch(() => {})
+      publishedScope = null
       callback(null)
+      await signOut(auth).catch(() => {})
     }
   })
+  return () => {
+    sessionVersion += 1
+    unsubscribe()
+  }
 }
 
 export function signOutAdmin() {
