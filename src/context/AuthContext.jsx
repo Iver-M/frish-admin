@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { isFirebaseEnabled } from '../services/firebase.js'
 import {
   observeAdminSession,
@@ -12,40 +12,43 @@ const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
-  const [authLoading, setAuthLoading] = useState(isFirebaseEnabled)
+  const [sessionState, setSessionState] = useState(isFirebaseEnabled ? 'checking' : 'ready')
+  const sessionVersion = useRef(0)
 
   useEffect(() => {
-    if (!isFirebaseEnabled) {
-      setAuthLoading(false)
-      return undefined
-    }
+    if (!isFirebaseEnabled) return undefined
 
-    return observeAdminSession((profile) => {
+    return observeAdminSession((profile, loading = false) => {
+      sessionVersion.current += 1
       setUser(profile)
-      setAuthLoading(false)
+      setSessionState(loading ? 'switching' : 'ready')
     })
   }, [])
 
   const loginWithGoogle = useCallback(async () => {
+    const current = sessionVersion.current
     const profile = await signInAdminWithGoogle()
-    setUser(profile)
+    if (current === sessionVersion.current) setUser(profile)
     return profile
   }, [])
 
   const loginWithCredentials = useCallback(async (email, password) => {
+    const current = sessionVersion.current
     const profile = await signInAdminWithCredentials(email, password)
-    setUser(profile)
+    if (current === sessionVersion.current) setUser(profile)
     return profile
   }, [])
 
   const logout = useCallback(() => {
+    sessionVersion.current += 1
     setUser(null)
     void signOutAdmin()
   }, [])
 
   const refreshProfile = useCallback(async () => {
+    const current = sessionVersion.current
     const profile = await refreshAdminSession()
-    setUser(profile)
+    if (current === sessionVersion.current) setUser(profile)
     return profile
   }, [])
 
@@ -62,7 +65,8 @@ export function AuthProvider({ children }) {
       isBfarAdmin,
       isMarketAdmin,
       isFirebaseEnabled,
-      authLoading,
+      authLoading: sessionState !== 'ready',
+      switchingSession: sessionState === 'switching',
     }}>
       {children}
     </AuthContext.Provider>

@@ -6,7 +6,7 @@ import { AUTHORITY_CASES_RUNTIME_MODE, authorityErrorMessage, transitionAuthorit
 import { createCaseCommand, transitionJournal } from '../../../services/authorityTransitionClient.js'
 import { CASE_ACTIONS, permittedCaseActions } from '../../../services/consumerAuthorityPolicy.js'
 
-export default function AuthorityCaseActions({ record, user }) {
+export default function AuthorityCaseActions({ record, user, lguView }) {
   const { logout } = useAuth()
   const [inspectors, setInspectors] = useState([])
   const [inspectorId, setInspectorId] = useState('')
@@ -29,11 +29,13 @@ export default function AuthorityCaseActions({ record, user }) {
     try {
       journal.current = transitionJournal(window.sessionStorage, `${AUTHORITY_CASES_RUNTIME_MODE}:${user.uid}:${record.caseId}`)
       const saved = journal.current.read()
-      if (saved && saved.caseId !== record.caseId) throw new Error('Retained case does not match.')
+      if (saved && (saved.caseId !== record.caseId || (lguView && saved.transition !== 'resolve'))) {
+        throw new Error('Retained action does not match this case.')
+      }
       if (saved) { attempted.current = true; setCommand(saved) }
       setJournalReady(true)
     } catch { setError('Unconfirmed action storage is unavailable or invalid. Preserve this tab and contact the project owner before sending another action.') }
-  }, [user.uid, record.caseId])
+  }, [user.uid, record.caseId, lguView])
   useEffect(() => {
     if (!actions.includes('assign_inspector')) return undefined
     let active = true

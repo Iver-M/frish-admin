@@ -4,7 +4,7 @@ import { FiAlertTriangle, FiBell, FiBriefcase, FiCheckCircle, FiMenu, FiMessageS
 import { isFirebaseEnabled } from '../services/firebase.js'
 import { FEEDBACK_MODE, canSubscribeLegacyAdminData } from '../services/feedbackEnvironment.js'
 import { subscribeMarketRecords } from '../services/firestoreService.js'
-import { AUTHORITY_CASES_RUNTIME_ENABLED, subscribeAuthorityCases } from '../services/authorityCasesBoundary.js'
+import { AUTHORITY_CASES_RUNTIME_ENABLED, isAuthorityCaseRefForUser, subscribeAuthorityCases } from '../services/authorityCasesBoundary.js'
 import { getReportCode } from '../utils/reportCode.js'
 import { markNotificationRead, subscribeNotificationReadState } from '../utils/notificationReadState.js'
 import { normalizeFeedbackRecord } from '../utils/feedbackRecord.js'
@@ -46,7 +46,8 @@ export default function Topbar({ onMenuClick, user }) {
       setAuthorityCases([])
       return undefined
     }
-    return subscribeAuthorityCases(setAuthorityCases, () => setAuthorityCases([]), user)
+    const clearCases = () => setAuthorityCases([])
+    return subscribeAuthorityCases(setAuthorityCases, clearCases, user, clearCases)
   }, [user])
 
   useEffect(() => {
@@ -141,7 +142,7 @@ export default function Topbar({ onMenuClick, user }) {
       : []
     const consumerCaseNotifications = authorityCases.flatMap((record) => {
       if (user?.role === 'bfar_admin' && record.status === 'submitted') return [{ id: `consumer-case-${record.id}-submitted`, reportId: record.id, path: `/reports?view=consumer-cases&caseId=${encodeURIComponent(record.id)}`, title: 'Consumer authority case needs assignment', detail: `${record.title} — ${record.vendorOrStall || 'Vendor not recorded'}`, timestamp: record.updatedAt || record.createdAt, icon: FiBriefcase }]
-      if (user?.role === 'market_admin' && record.status === 'forwarded_lgu') return [{ id: `consumer-case-${record.id}-lgu`, reportId: record.id, path: `/reports?view=consumer-cases&caseId=${encodeURIComponent(record.id)}`, title: 'Consumer case forwarded by BFAR-NCR', detail: `${record.title} — review the endorsed case`, timestamp: record.updatedAt || record.createdAt, icon: FiBriefcase }]
+      if (user?.role === 'market_admin' && record.status === 'forwarded_lgu' && isAuthorityCaseRefForUser(record.id, user)) return [{ id: `consumer-case-${record.id}-lgu`, reportId: record.id, path: `/reports?view=consumer-cases&caseId=${encodeURIComponent(record.id)}`, title: 'Consumer case forwarded by BFAR-NCR', detail: `${record.title} — review the endorsed case`, timestamp: record.updatedAt || record.createdAt, icon: FiBriefcase }]
       return []
     })
     return [...reportNotifications, ...consumerCaseNotifications, ...scanNotifications, ...feedbackNotifications]

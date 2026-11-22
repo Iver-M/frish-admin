@@ -5,6 +5,7 @@ import { Outlet, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import Sidebar from '../components/Sidebar.jsx'
 import Topbar from '../components/Topbar.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
+import { isLguCaseRef, usesLguCaseView } from '../services/authorityCasesBoundary.js'
 import './AdminLayout.css'
 
 // Which roles can access each route. This is the actual enforcement point
@@ -55,26 +56,33 @@ export default function AdminLayout() {
   const [bannerActionTarget, setBannerActionTarget] = useState(null)
   const navigate = useNavigate()
   const location = useLocation()
-  const { user, logout, authLoading } = useAuth()
-
+  const { user, logout, authLoading, switchingSession } = useAuth()
+  const currentPath = location.pathname.replace(/\/+$/, '') || '/'
+  const pathname = currentPath.toLowerCase()
+  const routeRoot = pathname.startsWith('/reports/')
+    ? '/reports'
+    : pathname.startsWith('/consumer-intake/')
+    ? '/consumer-intake'
+    : pathname.startsWith('/authority-cases/')
+      ? '/authority-cases'
+      : pathname
+  // A pending session change must also redact the previous URL while offline.
+  if (switchingSession || usesLguCaseView(user)) {
+    if (routeRoot === '/audit-trail') return <Navigate to="/dashboard" replace />
+    const params = new URLSearchParams(location.search)
+    const rawCasePath = pathname.startsWith('/authority-cases/')
+      && !isLguCaseRef(currentPath.slice('/authority-cases/'.length))
+    const rawCaseQuery = routeRoot === '/reports'
+      && params.getAll('caseId').some(caseId => !isLguCaseRef(caseId))
+    const intakeLink = (routeRoot === '/reports' && params.get('view') === 'consumer-intake')
+      || routeRoot === '/consumer-intake'
+    if (rawCasePath || rawCaseQuery || intakeLink) return <Navigate to="/reports?view=consumer-cases" replace />
+  }
   if (authLoading) {
     return <div className="admin-layout__loading">Checking your secure session…</div>
   }
+  if (!user) return <Navigate to="/" replace />
 
-  // Not logged in — bounce back to the login screen.
-  if (!user) {
-    return <Navigate to="/" replace />
-  }
-
-  // Logged in, but this role isn't allowed on this route — send to Dashboard
-  // rather than showing a broken/empty page.
-  const routeRoot = location.pathname.startsWith('/reports/')
-    ? '/reports'
-    : location.pathname.startsWith('/consumer-intake/')
-    ? '/consumer-intake'
-    : location.pathname.startsWith('/authority-cases/')
-      ? '/authority-cases'
-      : location.pathname
   const allowedRoles = ROUTE_ACCESS[routeRoot]
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     return <Navigate to="/dashboard" replace />
@@ -94,9 +102,10 @@ export default function AdminLayout() {
   }
 
   const [pageTitle, pageSubtitle] = BFAR_PAGE_HEADERS[routeRoot] || ['FRISH Admin Portal', 'Manage your FRISH administration workspace.']
+  const sessionScope = JSON.stringify([user.uid, user.role, user.marketId, user.consumerPermissions?.role, user.consumerPermissions?.cases])
   return (
     <BannerActionContext.Provider value={bannerActionTarget}>
-    <div className="admin-layout">
+    <div className="admin-layout" key={sessionScope}>
       <Sidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
