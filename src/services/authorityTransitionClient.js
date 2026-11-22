@@ -42,26 +42,56 @@ export function transitionJournal(storage, scope) {
 
 // An uncertain response keeps the exact command available to the caller. Never
 // generate a fresh requestId/version during retry or optimistically update data.
-export function createAuthorityTransitionClient({ endpoint, mode, getAuthToken, getAppCheckToken, fetchImpl = globalThis.fetch, timeoutMs = 15000 }) {
+export function createAuthorityTransitionClient({ endpoint, mode, getAuthSession, getAuthToken, getAppCheckToken, fetchImpl = globalThis.fetch, timeoutMs = 15000 }) {
   return async command => {
     if (!approvedTransitionEndpoint(endpoint, mode)) throw failure('authority-cases-disabled')
-    const token = await getAuthToken()
-    if (!token) throw failure('unauthenticated')
-    const appCheck = await getAppCheckToken()
-    if (!appCheck) throw failure('app-check-required')
+    const session = getAuthSession()
+    if (!session) throw failure('unauthenticated')
+    const requestBody = JSON.stringify({ data: command })
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), timeoutMs)
-    try {
+    let timer
+    const deadline = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        controller.abort()
+        reject(failure('unavailable'))
+      }, timeoutMs)
+    })
+
+    async function send(token, appToken) {
+      if (controller.signal.aborted) throw failure('unavailable')
+      if (getAuthSession() !== session) throw failure('unauthenticated')
       const response = await fetchImpl(endpoint, { method: 'POST', credentials: 'omit', cache: 'no-store', redirect: 'error',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'X-Firebase-AppCheck': appCheck },
-        body: JSON.stringify({ data: command }), signal: controller.signal })
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'X-Firebase-AppCheck': appToken },
+        body: requestBody, signal: controller.signal })
       let body
       try { body = await response.json() } catch { throw failure(response.status === 404 ? 'not-found' : 'invalid-response') }
+      if (response.status === 403 && body.error?.status === 'PERMISSION_DENIED') {
+        if (body.error.details?.category === 'auth_too_old') throw failure('recent-sign-in-required')
+        if (body.error.details?.category === 'app_check_too_old') throw failure('stale-app-check')
+      }
       if (!response.ok || body.error) throw failure(String(body.error?.status || (response.status === 404 ? 'NOT_FOUND' : 'UNAVAILABLE')).toLowerCase().replaceAll('_', '-'), body.error?.details)
       const result = body.result
       if (result?.schemaVersion !== '1.0' || result.outcome !== 'accepted' || result.caseId !== command.caseId
         || result.version !== command.expectedVersion + 1 || result.status !== CASE_ACTIONS[command.transition]?.to) throw failure('invalid-response')
       return result
+    }
+
+    async function submit() {
+      const [token, appCheck] = await Promise.all([getAuthToken(session), getAppCheckToken(false)])
+      if (!token) throw failure('unauthenticated')
+      if (!appCheck) throw failure('app-check-required')
+      try { return await send(token, appCheck) }
+      catch (error) {
+        // Only a denied preflight can request a silent refresh of the same command.
+        if (error?.code !== 'stale-app-check') throw error
+        const refreshed = await getAppCheckToken(true)
+        if (!refreshed) throw failure('app-check-required')
+        return await send(token, refreshed)
+      }
+    }
+
+    try {
+      return await Promise.race([submit(), deadline])
     } catch (error) {
       if (typeof error?.code === 'string') throw error
       throw failure('unavailable')

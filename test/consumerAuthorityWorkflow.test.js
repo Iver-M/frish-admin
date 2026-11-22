@@ -13,7 +13,7 @@ const id = '550e8400-e29b-41d4-a716-446655440000'
 const command = () => createCaseCommand(record, 'assign_inspector', assignment, id)
 const result = { schemaVersion: '1.0', outcome: 'accepted', caseId: record.caseId, status: 'assigned', version: 2 }
 const response = (body, status = 200) => ({ ok: status === 200, status, json: async () => body })
-const client = overrides => createAuthorityTransitionClient({ endpoint: CLOUD_TRANSITION_ENDPOINT, mode: 'cloud_test', getAuthToken: async () => 'synthetic-auth', getAppCheckToken: async () => 'synthetic-app', fetchImpl: async () => response({ result }), ...overrides })
+const client = overrides => createAuthorityTransitionClient({ endpoint: CLOUD_TRANSITION_ENDPOINT, mode: 'cloud_test', getAuthSession: () => 'synthetic-user', getAuthToken: async () => 'synthetic-auth', getAppCheckToken: async () => 'synthetic-app', fetchImpl: async () => response({ result }), ...overrides })
 
 test('configuration diagnoses disabled, incomplete, wrong-project and conflicting environments without enabling access', () => {
   assert.equal(evaluateConsumerRuntime().mode, 'disabled')
@@ -78,6 +78,87 @@ test('denial, stale version and transport failure remain failures without trusti
     await assert.rejects(client({ fetchImpl: async () => response({ error: { status, message: 'private secret', details: { category: 'stale_version' } } }, 403) })(command()), error => error.code === code && !error.message.includes('secret'))
   }
   await assert.rejects(client({ fetchImpl: async () => { throw new TypeError('network secret') } })(command()), { code: 'unavailable' })
+})
+
+test('assignment starts App Check while Firebase Auth is still refreshing', async () => {
+  let finishAuth
+  let appCheckStarted = false
+  const authRefresh = new Promise(resolve => { finishAuth = resolve })
+  const invoke = client({
+    getAuthToken: () => authRefresh,
+    getAppCheckToken: async () => { appCheckStarted = true; return 'synthetic-app' },
+  })
+  const pending = invoke(command())
+  try { assert.equal(appCheckStarted, true) }
+  finally { finishAuth('synthetic-auth'); await pending }
+})
+
+test('assignment refreshes stale App Check once and resends the byte-identical command', async () => {
+  const refreshes = []
+  const sent = []
+  const denial = response({ error: { status: 'PERMISSION_DENIED', details: { category: 'app_check_too_old' } } }, 403)
+  const invoke = client({
+    getAppCheckToken: async forceRefresh => { refreshes.push(forceRefresh); return forceRefresh ? 'fresh-app' : 'cached-app' },
+    fetchImpl: async (_url, options) => { sent.push(options); return sent.length === 1 ? denial : response({ result }) },
+  })
+  assert.deepEqual(await invoke(command()), result)
+  assert.deepEqual(refreshes, [false, true])
+  assert.equal(sent[0].body, sent[1].body)
+  assert.equal(sent[0].headers.Authorization, sent[1].headers.Authorization)
+  assert.equal(sent[1].headers['X-Firebase-AppCheck'], 'fresh-app')
+
+  let attempts = 0
+  await assert.rejects(client({ fetchImpl: async () => { attempts++; return denial } })(command()), { code: 'stale-app-check' })
+  assert.equal(attempts, 2)
+
+  attempts = 0
+  const wrongStatus = response({ error: { status: 'PERMISSION_DENIED', details: { category: 'app_check_too_old' } } }, 500)
+  await assert.rejects(client({ fetchImpl: async () => { attempts++; return wrongStatus } })(command()), { code: 'permission-denied' })
+  assert.equal(attempts, 1)
+})
+
+test('assignment tells a stale BFAR session to sign in again without blindly retrying', async () => {
+  let requests = 0
+  const denial = { status: 'PERMISSION_DENIED', details: { category: 'auth_too_old' } }
+  const invoke = client({ fetchImpl: async () => { requests++; return response({ error: denial }, 403) } })
+  await assert.rejects(invoke(command()), error => /sign in again/i.test(authorityFailureMessage(error)))
+  assert.equal(requests, 1)
+})
+
+test('assignment timeout includes a stalled App Check refresh and prevents a late resend', { timeout: 1000 }, async () => {
+  let finishRefresh
+  const refresh = new Promise(resolve => { finishRefresh = resolve })
+  let requests = 0
+  const invoke = client({
+    timeoutMs: 15,
+    getAppCheckToken: async force => force ? refresh : 'cached-app',
+    fetchImpl: async () => {
+      requests++
+      return response({ error: { status: 'PERMISSION_DENIED', details: { category: 'app_check_too_old' } } }, 403)
+    },
+  })
+  await assert.rejects(invoke(command()), { code: 'unavailable' })
+  finishRefresh('late-app-token')
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(requests, 1)
+})
+
+test('assignment does not resend with the previous bearer after the signed-in user changes', async () => {
+  let session = { uid: 'first-user' }
+  let requests = 0
+  const invoke = client({
+    getAuthSession: () => session,
+    getAppCheckToken: async force => {
+      if (force) session = { uid: 'second-user' }
+      return 'synthetic-app'
+    },
+    fetchImpl: async () => {
+      if (++requests === 1) return response({ error: { status: 'PERMISSION_DENIED', details: { category: 'app_check_too_old' } } }, 403)
+      return response({ result })
+    },
+  })
+  await assert.rejects(invoke(command()), { code: 'unauthenticated' })
+  assert.equal(requests, 1)
 })
 
 test('malformed or mismatched successful responses never confirm completion', async () => {
