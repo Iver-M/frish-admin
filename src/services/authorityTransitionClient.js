@@ -24,6 +24,8 @@ export function createCaseCommand(record, transition, assignment = null, request
 }
 function validText(value, max) { return typeof value === 'string' && value === value.trim() && value.length > 0 && value.length <= max && !/[\u0000-\u001f\u007f]/.test(value) }
 
+const confirmations = new EventTarget()
+
 export function transitionJournal(storage, scope) {
   const key = `frish:unconfirmed-authority:${scope}`
   return {
@@ -36,6 +38,17 @@ export function transitionJournal(storage, scope) {
       return command
     },
     save(command) { storage.setItem(key, JSON.stringify(command)) },
+    onConfirmed(listener) {
+      const notify = event => listener(event.detail)
+      confirmations.addEventListener(key, notify)
+      return () => confirmations.removeEventListener(key, notify)
+    },
+    confirm(command, result) {
+      // A late HTTP response can outlive this view or a replacement command.
+      if (storage.getItem(key) !== JSON.stringify(command)) return
+      storage.removeItem(key)
+      confirmations.dispatchEvent(new CustomEvent(key, { detail: result }))
+    },
     clear() { storage.removeItem(key) },
   }
 }

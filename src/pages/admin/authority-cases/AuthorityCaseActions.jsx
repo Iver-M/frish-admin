@@ -34,6 +34,9 @@ export default function AuthorityCaseActions({ record, user, lguView }) {
       }
       if (saved) { attempted.current = true; setCommand(saved) }
       setJournalReady(true)
+      return journal.current.onConfirmed(result => {
+        setConfirmed(result); setCommand(null); setError(''); setNeedsSignIn(false)
+      })
     } catch { setError('Unconfirmed action storage is unavailable or invalid. Preserve this tab and contact the project owner before sending another action.') }
   }, [user.uid, record.caseId, lguView])
   useEffect(() => {
@@ -62,15 +65,19 @@ export default function AuthorityCaseActions({ record, user, lguView }) {
       return false
     }
     busy.current = true; attempted.current = true; setPending(true); setError('')
+    const submittedJournal = journal.current
     try {
       // Persist before sending. No token, private Consumer facts or evidence is stored.
-      try { journal.current.save(command) }
+      try { submittedJournal.save(command) }
       catch { throw Object.assign(new Error(), { code: 'request-storage-unavailable' }) }
       const result = await transitionAuthorityCase(command)
-      if (!mounted.current) return
-      setConfirmed(result); setCommand(null)
-      try { journal.current.clear() }
-      catch { setJournalReady(false); setError('The server confirmed this action, but this tab could not clear its retained request. Restore session storage and refresh before preparing another action.') }
+      try { submittedJournal.confirm(command, result) }
+      catch {
+        if (mounted.current) {
+          setConfirmed(result); setCommand(null); setJournalReady(false)
+          setError('The server confirmed this action, but this tab could not clear its retained request. Restore session storage and refresh before preparing another action.')
+        }
+      }
     } catch (actionError) {
       if (mounted.current) {
         setNeedsSignIn(actionError?.code === 'recent-sign-in-required')

@@ -3,7 +3,7 @@ import { connectAuthEmulator, initializeAuth, inMemoryPersistence } from 'fireba
 import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore'
 import { connectFunctionsEmulator, getFunctions } from 'firebase/functions'
 import { connectStorageEmulator, getStorage } from 'firebase/storage'
-import { getToken, initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check'
+import { getToken, initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check'
 import { auth as primaryAuth, db as primaryDb, storage as primaryStorage, functions as primaryFunctions, isFirebaseEnabled } from './firebase.js'
 import { evaluateConsumerRuntime } from './consumerAuthorityPolicy.js'
 import { createAuthorityFirebaseClient } from './authorityFirebaseClient.js'
@@ -26,6 +26,6 @@ let authorityAppCheck = null
 export async function getAuthorityAppCheckToken(forceRefresh = false) {
   if (!client.app || !isAuthorityCloudTestEnabled || !runtimeEnv.VITE_AUTHORITY_APP_CHECK_SITE_KEY || typeof window === 'undefined') return null
   // Optional App Check configuration never runs during Inspector/Admin startup.
-  authorityAppCheck ||= initializeAppCheck(client.app, { provider: new ReCaptchaV3Provider(runtimeEnv.VITE_AUTHORITY_APP_CHECK_SITE_KEY), isTokenAutoRefreshEnabled: true })
+  authorityAppCheck ||= initializeAppCheck(client.app, { provider: new ReCaptchaEnterpriseProvider(runtimeEnv.VITE_AUTHORITY_APP_CHECK_SITE_KEY), isTokenAutoRefreshEnabled: true })
   return (await getToken(authorityAppCheck, forceRefresh)).token
 }
